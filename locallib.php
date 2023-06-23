@@ -21,55 +21,53 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use \local_mail\label;
+use \local_mail\user;
+
 defined('MOODLE_INTERNAL') || die;
 
 require_once($CFG->libdir . '/filelib.php');
-require_once('label.class.php');
-require_once('message.class.php');
-require_once($CFG->dirroot.'/group/lib.php');
+require_once($CFG->dirroot . '/group/lib.php');
 
 define('MAIL_PAGESIZE', 10);
 define('LOCAL_MAIL_MAXFILES', 5);
 define('LOCAL_MAIL_MAXBYTES', 1048576);
 
-function local_mail_attachments($message) {
-    $context = context_course::instance($message->course()->id);
-    $fs = get_file_storage();
-    return $fs->get_area_files($context->id, 'local_mail', 'message',
-                               $message->id(), 'filename', false);
-}
-
-function local_mail_downloadall($message) {
-    $attachments = local_mail_attachments($message);
-    if (count($attachments) > 1) {
-        foreach ($attachments as $attach) {
-            $filename = clean_filename($attach->get_filename());
-            $filesforzipping[$filename] = $attach;
-        }
-        $filename = clean_filename(fullname($message->sender()) . '-' .
-                                   $message->subject() . '.zip');
-        if ($zipfile = pack_files($filesforzipping)) {
-            send_temp_file($zipfile, $filename);
-        }
-    }
-}
-
-function pack_files($filesforzipping) {
+function local_mail_is_installed() {
     global $CFG;
 
-    $tempzip = tempnam($CFG->tempdir . '/', 'local_mail_');
-    $zipper = new zip_packer();
-    if ($zipper->archive_to_pathname($filesforzipping, $tempzip)) {
-        return $tempzip;
-    }
-    return false;
+    $plugin = new stdClass;
+    include("$CFG->dirroot/local/mail/version.php");
+
+    $version = get_config('local_mail', 'version');
+
+    return $version == $plugin->version;
+}
+
+function local_mail_attachments($message) {
+    $context = $message->course->context();
+    $fs = get_file_storage();
+    return $fs->get_area_files(
+        $context->id,
+        'local_mail',
+        'message',
+        $message->id,
+        'filename',
+        false
+    );
 }
 
 function local_mail_format_content($message) {
-    $context = context_course::instance($message->course()->id);
-    $content = file_rewrite_pluginfile_urls($message->content(), 'pluginfile.php', $context->id,
-                                            'local_mail', 'message', $message->id());
-    return format_text($content, $message->format());
+    $context = $message->course->context();
+    $content = file_rewrite_pluginfile_urls(
+        $message->content,
+        'pluginfile.php',
+        $context->id,
+        'local_mail',
+        'message',
+        $message->id
+    );
+    return format_text($content, $message->format);
 }
 
 function local_mail_setup_page($course, $url) {
@@ -104,10 +102,10 @@ function local_mail_setup_page($course, $url) {
             $navurl->param('c', $url->param('c'));
             $navtitle = $course->shortname;
         } else if ($type == 'label') {
-            $label = local_mail_label::fetch($url->param('l'));
+            $label = label::fetch($url->param('l'));
             if ($label) {
-                $navurl->param('l', $label->id());
-                $navtitle = $label->name();
+                $navurl->param('l', $label->id);
+                $navtitle = $label->name;
             }
         }
     }
@@ -129,24 +127,24 @@ function local_mail_send_notifications($message) {
 
         $attachment = '';
 
-        if ($message->attachments()) {
+        if ($message->attachments) {
             $attachment = get_string('hasattachments', 'local_mail');
         }
-        $plaindata->user = fullname($message->sender());
-        $plaindata->subject = $message->subject() . ' ' . $attachment;
-        $plaindata->content = $message->content();
+        $plaindata->user = $message->sender()->fullname();
+        $plaindata->subject = $message->subject . ' ' . $attachment;
+        $plaindata->content = $message->content;
 
-        $htmldata->user = fullname($message->sender());
-        $htmldata->subject = $message->subject() . ' ' . $attachment;
-        $url = new moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id()));
+        $htmldata->user = $message->sender()->fullname();
+        $htmldata->subject = $message->subject . ' ' . $attachment;
+        $url = new moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id));
         $htmldata->url = $url->out(false);
-        $htmldata->content = $message->content();
+        $htmldata->content = $message->content;
 
-        $fullplainmessage = format_text_email(get_string('notificationbody', 'local_mail', $plaindata), $message->format());
+        $fullplainmessage = format_text_email(get_string('notificationbody', 'local_mail', $plaindata), $message->format);
 
         $eventdata = new \core\message\message();
         if ($CFG->branch >= 32) {
-            $eventdata->courseid      = $message->course()->id;
+            $eventdata->courseid      = $message->course->id;
         }
         $eventdata->component         = 'local_mail';
         $eventdata->name              = 'mail';
@@ -159,77 +157,23 @@ function local_mail_send_notifications($message) {
         $eventdata->notification      = 1;
 
         $smallmessagestrings = new stdClass();
-        $smallmessagestrings->user = fullname($message->sender());
-        $smallmessagestrings->message = $message->subject();
+        $smallmessagestrings->user = $message->sender()->fullname();
+        $smallmessagestrings->message = $message->subject;
         $eventdata->smallmessage = get_string_manager()->get_string('smallmessage', 'local_mail', $smallmessagestrings);
 
-        $url = new moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id()));
+        $url = new moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id));
         $eventdata->contexturl = $url->out(false);
-        $eventdata->contexturlname = $message->subject();
+        $eventdata->contexturlname = $message->subject;
 
         $mailresult = message_send($eventdata);
         if (!$mailresult) {
-            mtrace("Error: local/mail/locallib.php local_mail_send_mail(): Could not send out mail for id {$message->id()} " .
-                    "to user {$message->sender()->id} ($userto->email) .. not trying again.");
+            mtrace("Error: local/mail/locallib.php local_mail_send_mail(): Could not send out mail for id {$message->id} " .
+                "to user {$message->sender()->id} ($userto->email) .. not trying again.");
         } else if (get_user_preferences('local_mail_markasread', false, $userto)) {
             // Set message as read depending on user preferences.
-            $message->set_unread($userto->id, false);
+            $message->set_unread(user::fetch($userto->id), false);
         }
     }
-}
-
-function local_mail_js_labels() {
-    global $USER;
-
-    $labels = local_mail_label::fetch_user($USER->id);
-    $js = 'M.local_mail = {mail_labels: {';
-    $cont = 0;
-    $total = count($labels);
-    foreach ($labels as $label) {
-        $js .= '"' . $label->id() . '":{"id": "' . $label->id() . '", "name": "' .
-               s($label->name()) . '", "color": "' . $label->color() . '"}';
-        $cont++;
-        if ($cont < $total) {
-            $js .= ',';
-        }
-    }
-    $js .= '}};';
-    return $js;
-}
-
-
-function local_mail_get_menu() {
-    global $USER;
-
-    $count = local_mail_message::count_menu($USER->id);
-    $result = [
-        'unread' => isset($count->inbox) ? $count->inbox : 0,
-        'drafts' => isset($count->drafts) ? $count->drafts : 0,
-        'courses' => [],
-        'labels' => [],
-    ];
-
-    foreach (local_mail_get_my_courses() as $course) {
-        $result['courses'][] = [
-            'id' => $course->id,
-            'shortname' => $course->shortname,
-            'fullname' => $course->fullname,
-            'unread' => isset($count->courses[$course->id]) ? $count->courses[$course->id] : 0,
-            'visible' => !empty($course->visible),
-        ];
-    }
-
-    foreach (local_mail_label::fetch_user($USER->id) as $label) {
-        $id = $label->id();
-        $result['labels'][] = [
-            'id' => $id,
-            'name' => $label->name(),
-            'color' => $label->color(),
-            'unread' => isset($count->labels[$id]) ? $count->labels[$id] : 0,
-        ];
-    }
-
-    return $result;
 }
 
 function local_mail_get_my_courses() {
@@ -249,63 +193,6 @@ function local_mail_get_my_courses() {
     return $courses;
 }
 
-function local_mail_get_preferences() {
-    return [
-        'perpage' => max(5, min(100, (int) get_user_preferences('local_mail_mailsperpage', 10))),
-        'markasread' => (bool) get_user_preferences('local_mail_markasread', 0),
-    ];
-}
-
-function local_mail_get_settings() {
-    $globaltrays = get_config('local_mail', 'globaltrays');
-    if ($globaltrays === false) {
-        $globaltrays = ['starred', 'sent', 'drafts', 'trash'];
-    } else if ($globaltrays == '') {
-        $globaltrays = [];
-    } else {
-        $globaltrays = explode(',', $globaltrays);
-    }
-
-    return [
-        'globaltrays' => $globaltrays,
-        'coursetrays' => get_config('local_mail', 'coursetrays') ?: 'all',
-        'coursetraysname' => get_config('local_mail', 'coursetraysname') ?: 'fullname',
-        'coursebadges' => get_config('local_mail', 'coursebadges') ?: 'fullname',
-        'coursebadgeslength' => get_config('local_mail', 'coursebadgeslength') ?: 20,
-    ];
-}
-
-function local_mail_get_strings($lang = null) {
-    global $CFG;
-
-    $lang ??= current_language();
-
-    // Ignore language packages from AMOS for Catalan and Spanish.
-    if ($lang == 'ca' || $lang == 'es') {
-        $string = [];
-
-        // First load english pack.
-        include("$CFG->dirroot/local/mail/lang/en/local_mail.php");
-
-        // And then corresponding local english if present.
-        if (file_exists("$CFG->langlocalroot/en_local/local_mail.php")) {
-            include("$CFG->langlocalroot/en_local/local_mail.php");
-        }
-
-        // Legacy location - used by contrib only.
-        include("$CFG->dirroot/local/mail/lang/$lang/local_mail.php");
-
-        // Local customisations.
-        if (file_exists("$CFG->langlocalroot/{$lang}_local/local_mail.php")) {
-            include("$CFG->langlocalroot/{$lang}_local/local_mail/file.php");
-        }
-
-        return $string;
-    }
-
-    return get_string_manager()->load_component_strings('local_mail', $lang);
-}
-
 function local_mail_valid_recipient($recipient) {
     global $COURSE, $USER;
 
@@ -319,12 +206,22 @@ function local_mail_valid_recipient($recipient) {
         return false;
     }
 
-    if ($COURSE->groupmode == SEPARATEGROUPS &&
-            !has_capability('moodle/site:accessallgroups', $context)) {
-        $ugroups = groups_get_all_groups($COURSE->id, $USER->id,
-                                         $COURSE->defaultgroupingid, 'g.id');
-        $rgroups = groups_get_all_groups($COURSE->id, $recipient,
-                                         $COURSE->defaultgroupingid, 'g.id');
+    if (
+        $COURSE->groupmode == SEPARATEGROUPS &&
+        !has_capability('moodle/site:accessallgroups', $context)
+    ) {
+        $ugroups = groups_get_all_groups(
+            $COURSE->id,
+            $USER->id,
+            $COURSE->defaultgroupingid,
+            'g.id'
+        );
+        $rgroups = groups_get_all_groups(
+            $COURSE->id,
+            $recipient,
+            $COURSE->defaultgroupingid,
+            'g.id'
+        );
         if (!array_intersect(array_keys($ugroups), array_keys($rgroups))) {
             return false;
         }
@@ -336,20 +233,20 @@ function local_mail_valid_recipient($recipient) {
 function local_mail_add_recipients($message, $recipients, $role) {
     global $DB;
 
-    $context = context_course::instance($message->course()->id);
+    $context = $message->course->context();
     $groupid = 0;
     $severalseparategroups = false;
     $roles = array('to', 'cc', 'bcc');
     $role = ($role >= 0 && $role < 3) ? $role : 0;
 
-    if ($message->course()->groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $context)) {
-        $groups = groups_get_user_groups($message->course()->id, $message->sender()->id);
+    if ($message->course->groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $context)) {
+        $groups = groups_get_user_groups($message->course->id, $message->sender()->id);
         if (count($groups[0]) == 0) {
             return;
-        } else if (count($groups[0]) == 1) {// Only one group.
+        } else if (count($groups[0]) == 1) { // Only one group.
             $groupid = $groups[0][0];
         } else {
-            $severalseparategroups = true;// Several groups.
+            $severalseparategroups = true; // Several groups.
         }
     }
 
@@ -357,12 +254,17 @@ function local_mail_add_recipients($message, $recipients, $role) {
     $recipients = clean_param_array($recipients, PARAM_INT);
 
     $participants = array();
-    list($select, $from, $where, $sort, $params) = local_mail_getsqlrecipients($message->course()->id, '',
-                                                                               $groupid, 0, implode(',', $recipients));
+    list($select, $from, $where, $sort, $params) = local_mail_getsqlrecipients(
+        $message->course->id,
+        '',
+        $groupid,
+        0,
+        implode(',', $recipients)
+    );
     $rs = $DB->get_recordset_sql("$select $from $where $sort", $params);
 
     foreach ($rs as $rec) {
-        if (!array_key_exists($rec->id, $participants)) {// Avoid duplicated users.
+        if (!array_key_exists($rec->id, $participants)) { // Avoid duplicated users.
             if ($severalseparategroups) {
                 $valid = false;
                 foreach ($groups[0] as $group) {
@@ -410,15 +312,18 @@ function local_mail_getsqlrecipients($courseid, $search, $groupid, $roleid, $rec
     if (!$mailsamerole) {
         $userroleids = local_mail_get_user_roleids($USER->id, $context);
         list($relctxsql, $reldctxparams) = $DB->get_in_or_equal($context->get_parent_context_ids(true), SQL_PARAMS_NAMED, 'relctx');
-        list($samerolesql, $sameroleparams) = $DB->get_in_or_equal($userroleids, SQL_PARAMS_NAMED, 'samerole' , false);
+        list($samerolesql, $sameroleparams) = $DB->get_in_or_equal($userroleids, SQL_PARAMS_NAMED, 'samerole', false);
         $wheres[] = "u.id IN (SELECT userid FROM {role_assignments} WHERE roleid $samerolesql AND contextid $relctxsql)";
         $params = array_merge($params, array('roleid' => $roleid), $sameroleparams, $reldctxparams);
     }
 
     if ($roleid) {
         // We want to query both the current context and parent contexts.
-        list($relatedctxsql, $relatedctxparams) = $DB->get_in_or_equal($context->get_parent_context_ids(true),
-                                                                       SQL_PARAMS_NAMED, 'relatedctx');
+        list($relatedctxsql, $relatedctxparams) = $DB->get_in_or_equal(
+            $context->get_parent_context_ids(true),
+            SQL_PARAMS_NAMED,
+            'relatedctx'
+        );
         $wheres[] = "u.id IN (SELECT userid FROM {role_assignments} WHERE roleid = :roleid AND contextid $relatedctxsql)";
         $params = array_merge($params, array('roleid' => $roleid), $relatedctxparams);
     }
@@ -427,7 +332,7 @@ function local_mail_getsqlrecipients($courseid, $search, $groupid, $roleid, $rec
 
     if (!empty($search)) {
         $fullname = $DB->sql_fullname('u.firstname', 'u.lastname');
-        $wheres[] = "(". $DB->sql_like($fullname, ':search1', false, false) .") ";
+        $wheres[] = "(" . $DB->sql_like($fullname, ':search1', false, false) . ") ";
         $params['search1'] = "%$search%";
     }
 
@@ -438,7 +343,7 @@ function local_mail_getsqlrecipients($courseid, $search, $groupid, $roleid, $rec
     $params['guestid'] = $CFG->siteguest;
 
     if ($recipients) {
-        $wheres[] = 'u.id IN ('.preg_replace('/^,|,$/', '', $recipients).')';
+        $wheres[] = 'u.id IN (' . preg_replace('/^,|,$/', '', $recipients) . ')';
     }
 
     $where = "WHERE " . implode(" AND ", $wheres);
@@ -454,7 +359,9 @@ function local_mail_get_user_roleids($userid, $context) {
     return array_map(
         function ($role) {
             return $role->roleid;
-        }, $roles);
+        },
+        $roles
+    );
 }
 
 /**
@@ -507,7 +414,7 @@ function local_mail_svelte_script(string $file): string {
         }
     }
 
-     $html .= html_writer::tag('script', '', ['type' => 'module', 'src' => $jsurl]);
+    $html .= html_writer::tag('script', '', ['type' => 'module', 'src' => $jsurl]);
 
-     return $html;
+    return $html;
 }

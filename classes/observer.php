@@ -23,10 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/local/mail/message.class.php');
-
 /**
  * Event observer for local_mail.
  */
@@ -38,8 +34,6 @@ class local_mail_observer {
      * @param \core\event\course_deleted $event
      */
     public static function course_deleted(\core\event\course_deleted $event) {
-        $fs = get_file_storage();
-        $fs->delete_area_files($event->contextid, 'local_mail');
-        local_mail_message::delete_course($event->objectid);
+        local_mail\course::delete_messages($event->objectid);
     }
 }

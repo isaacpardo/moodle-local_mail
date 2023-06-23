@@ -8,58 +8,113 @@
     export let transparent = false;
     export let compact = false;
 
+    $: hasNext =
+        $store.nextMessageId ||
+        (!$store.params.search &&
+            ($store.params.offset || 0) + $store.preferences.perpage < $store.totalCount);
+
+    $: hasPrev = $store.prevMessageId || (!$store.params.search && ($store.params.offset || 0) > 0);
+
+    $: nextParams = hasNext
+        ? $store.message
+            ? {
+                  ...$store.params,
+                  messageid: $store.nextMessageId,
+                  offset: ($store.params.offset || 0) + 1,
+              }
+            : {
+                  ...$store.params,
+                  messageid: undefined,
+                  offset: ($store.params.offset || 0) + $store.preferences.perpage,
+                  search: $store.params.search
+                      ? {
+                            ...$store.params.search,
+                            startid: $store.listMessages[$store.listMessages.length - 1]?.id,
+                            reverse: false,
+                        }
+                      : undefined,
+              }
+        : undefined;
+
+    $: prevParams = hasPrev
+        ? $store.message
+            ? {
+                  ...$store.params,
+                  messageid: $store.prevMessageId,
+                  offset: Math.max(0, ($store.params.offset || 0) - 1),
+              }
+            : {
+                  ...$store.params,
+                  messageid: undefined,
+                  offset: Math.max(0, ($store.params.offset || 0) - $store.preferences.perpage),
+                  search: $store.params.search
+                      ? {
+                            ...$store.params.search,
+                            startid: $store.listMessages[0].id,
+                            reverse: true,
+                        }
+                      : undefined,
+              }
+        : undefined;
+
     $: pagingText = $store.message
-        ? replaceStringParams($store.strings.pagingsingle, {
-              index: ($store.messageOffset || 0) + 1,
-              total: $store.list.totalcount,
-          })
-        : $store.list.messages.length == 0
+        ? $store.params.search
+            ? ($store.params.offset || 0) + 1
+            : replaceStringParams($store.strings.pagingsingle, {
+                  index: ($store.messageOffset || 0) + 1,
+                  total: $store.totalCount,
+              })
+        : $store.listMessages.length == 0
         ? ''
+        : $store.params.search
+        ? replaceStringParams($store.strings.pagingsearch, {
+              first: ($store.params.offset || 0) + 1,
+              last: ($store.params.offset || 0) + $store.listMessages.length,
+          })
         : replaceStringParams($store.strings.pagingmultiple, {
-              first: $store.list.firstoffset + 1,
-              last: $store.list.lastoffset + 1,
-              total: $store.list.totalcount,
+              first: ($store.params.offset || 0) + 1,
+              last: ($store.params.offset || 0) + $store.listMessages.length,
+              total: $store.totalCount,
           });
 </script>
 
-{#if !compact}
-    <div class="text-truncate align-self-center mx-3">
-        {pagingText}
-    </div>
-{/if}
-
-<div
-    class="local-mail-paging-buttons btn-group d-flex flex-shrink-1"
-    class:btn-group={!compact}
-    role="group"
->
-    <button
-        class="btn btn-secondary"
-        class:btn-secondary={!transparent}
-        disabled={!$store.prevPageParams}
-        title={$store.strings.previouspage}
-        on:click|preventDefault={() => store.navigate($store.prevPageParams)}
-    >
-        <i class="fa fa-w fa-chevron-left" aria-label={$store.strings.previouspage} />
-    </button>
-    {#if compact}
-        <div class="text-truncate align-self-center mx-2">
+<div class="local-mail-paging-buttons d-flex" class:ml-auto={!compact}>
+    {#if !compact}
+        <div class="align-self-center text-nowrap">
             {pagingText}
         </div>
     {/if}
-    <button
-        class="btn"
-        class:btn-secondary={!transparent}
-        disabled={!$store.nextPageParams}
-        title={$store.strings.nextpage}
-        on:click|preventDefault={() => store.navigate($store.nextPageParams)}
-    >
-        <i class="fa fa-w fa-chevron-right" aria-label={$store.strings.nextpage} />
-    </button>
+
+    <div class="btn-group d-flex flex-shrink-1" class:btn-group={!compact} role="group">
+        <button
+            class="btn btn-secondary"
+            class:btn-secondary={!transparent}
+            disabled={!prevParams}
+            title={$store.strings[$store.message ? 'previousmessage' : 'previouspage']}
+            on:click|preventDefault={() => store.navigate(prevParams)}
+        >
+            <i class="fa fa-w fa-chevron-left" aria-label={$store.strings.previouspage} />
+        </button>
+        {#if compact}
+            <div class="text-truncate align-self-center mx-2">
+                {pagingText}
+            </div>
+        {/if}
+        <button
+            class="btn"
+            class:btn-secondary={!transparent}
+            disabled={!nextParams}
+            title={$store.strings[$store.message ? 'nextmessage' : 'nextpage']}
+            on:click|preventDefault={() => store.navigate(nextParams)}
+        >
+            <i class="fa fa-w fa-chevron-right" aria-label={$store.strings.nextpage} />
+        </button>
+    </div>
 </div>
 
 <style>
     .local-mail-paging-buttons {
         min-width: 0;
+        column-gap: 1rem;
     }
 </style>

@@ -9,14 +9,21 @@
 <button
     type="button"
     class="local-mail-back-button btn btn-secondary"
-    title={$store.strings.back}
-    on:click={() => store.navigate({ ...$store.params, messageid: undefined })}
+    title={$store.strings.messagelist}
+    on:click={() =>
+        store.navigate({
+            ...$store.params,
+            messageid: undefined,
+            offset:
+                Math.floor(($store.messageOffset || 0) / $store.preferences.perpage) *
+                $store.preferences.perpage,
+        })}
 >
     <i class="fa fa fa-fw fa-arrow-left" />
 </button>
 
 <style>
     .local-mail-back-button {
-        margin-right: calc(1rem + 13px);
+        margin-right: 13px;
     }
 </style>

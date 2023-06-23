@@ -110,7 +110,7 @@ if ($hassiteconfig) {
     $description = get_string('configcoursebadgesdesc', 'local_mail');
     $defaultsetting = 'fullname';
     $choices = [
-        'none' => get_string('none'),
+        'hidden' => get_string('hide'),
         'shortname' => get_string('shortname'),
         'fullname' => get_string('fullname'),
     ];
@@ -124,5 +124,35 @@ if ($hassiteconfig) {
     $paramtype = PARAM_INT;
     $settings->add(new admin_setting_configtext($name, $visiblename, $description, $defaultsetting, $paramtype));
 
+    // Course badge type.
+    $name = 'local_mail/filterbycourse';
+    $visiblename = get_string('configfilterbycourse', 'local_mail');
+    $description = get_string('configfilterbycoursedesc', 'local_mail');
+    $defaultsetting = 'fullname';
+    $choices = [
+        'hidden' => get_string('hide'),
+        'shortname' => get_string('shortname'),
+        'fullname' => get_string('fullname'),
+    ];
+    $settings->add(new admin_setting_configselect($name, $visiblename, $description, $defaultsetting, $choices));
+
     $ADMIN->add('localplugins', $settings);
+
+    // Search.
+    $settings->add(new admin_setting_heading('local_mail_search', get_string('search', 'local_mail'), ''));
+
+    // Incremental search.
+    $name = 'local_mail/incrementalsearch';
+    $visiblename = get_string('configincrementalsearch', 'local_mail');
+    $description = get_string('configincrementalsearchdesc', 'local_mail');
+    $defaultsetting = '0';
+    $settings->add(new admin_setting_configcheckbox($name, $visiblename, $description, $defaultsetting));
+
+    // Incremental search limit.
+    $name = 'local_mail/incrementalsearchlimit';
+    $visiblename = get_string('configincrementalsearchlimit', 'local_mail');
+    $description = get_string('configincrementalsearchlimitdesc', 'local_mail');
+    $defaultsetting = 1000;
+    $paramtype = PARAM_INT;
+    $settings->add(new admin_setting_configtext($name, $visiblename, $description, $defaultsetting, $paramtype));
 }

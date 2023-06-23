@@ -2,20 +2,20 @@
 
 <script lang="ts">
     import { truncate } from '../actions/truncate';
-    import type { Course, Settings } from '../lib/services';
+    import type { MessageCourse, Settings } from '../lib/services';
 
-    export let course: Course;
+    export let course: MessageCourse;
     export let settings: Settings;
 
     $: text = settings.coursebadges == 'shortname' ? course.shortname : course.fullname;
-    $: length = settings.coursebadgeslength || 20 + 1;
+    $: length = settings.coursebadgeslength || 20;
 </script>
 
-{#if settings.coursebadges != 'none'}
+{#if ['shortname', 'fullname'].includes(settings.coursebadges)}
     <span
         class="local-mail-course-badge badge px-2 mr-2 mb-2"
         use:truncate={text}
-        style="min-width: 3rem; max-width: calc({length}ch + 1rem)"
+        style="min-width: 3rem; max-width: calc({length}ch + 1.5rem)"
     >
         {text}
     </span>

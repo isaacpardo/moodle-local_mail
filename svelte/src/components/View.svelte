@@ -10,7 +10,7 @@
     import Menu from './Menu.svelte';
     import Message from './Message.svelte';
     import PerPageSelect from './PerPageSelect.svelte';
-    import SearchInput from './SearchInput.svelte';
+    import SearchBox from './SearchBox.svelte';
     import Toasts from './Toasts.svelte';
     import TopToolBar from './TopToolBar.svelte';
     import { ViewSize, type Store } from '../lib/store';
@@ -22,20 +22,20 @@
     let prevNavigationId = 0;
 
     $: heading =
-        $store.params.type == 'inbox'
+        $store.params.tray == 'inbox'
             ? $store.strings.inbox
-            : $store.params.type == 'starred'
+            : $store.params.tray == 'starred'
             ? $store.strings.starredmail
-            : $store.params.type == 'sent'
+            : $store.params.tray == 'sent'
             ? $store.strings.sentmail
-            : $store.params.type == 'drafts'
+            : $store.params.tray == 'drafts'
             ? $store.strings.drafts
-            : $store.params.type == 'trash'
+            : $store.params.tray == 'trash'
             ? $store.strings.trash
-            : $store.params.type == 'label'
-            ? $store.menu.labels.find((l) => l.id == $store.params.labelid)?.name || ''
-            : $store.params.type == 'course'
-            ? $store.menu.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
+            : $store.params.tray == 'label'
+            ? $store.labels.find((l) => l.id == $store.params.labelid)?.name || ''
+            : $store.params.tray == 'course'
+            ? $store.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
             : '';
 
     $: title = $store.message ? $store.message.subject : heading;
@@ -77,7 +77,7 @@
 
         <div class="local-mail-view-main-column d-flex mb-4">
             <div class="local-mail-view-search flex-shrink-1">
-                <SearchInput {store} />
+                <SearchBox {store} />
             </div>
             {#if $store.viewSize < ViewSize.LG}
                 <div class="flex-shrink-1 text-truncate d-flex">
@@ -106,7 +106,10 @@
                 <Menu
                     settings={$store.settings}
                     strings={$store.strings}
-                    menu={$store.menu}
+                    unread={$store.unread}
+                    drafts={$store.drafts}
+                    courses={$store.courses}
+                    labels={$store.labels}
                     params={$store.params}
                     onClick={(params) => store.navigate(params)}
                 />
@@ -158,6 +161,11 @@
         margin: 0 2rem 2rem auto;
     }
 
+    :global(.local-mail-view .dropdown-item:not(:focus):hover) {
+        color: inherit;
+        background-color: #eee;
+    }
+
     .local-mail-view {
         max-width: 100rem;
     }
@@ -170,6 +178,7 @@
         padding-right: 15px;
         padding-left: 15px;
         flex-basis: 100%;
+        flex-grow: 1;
         min-width: 0;
         column-gap: 1rem;
     }
@@ -178,12 +187,12 @@
         padding-right: 15px;
         padding-left: 15px;
         flex-basis: 100%;
+        flex-grow: 1;
         min-width: 0;
     }
 
     .local-mail-view-search {
         flex-grow: 1;
-        max-width: 30rem;
         margin-right: auto;
     }
 
@@ -200,6 +209,9 @@
             flex-basis: 25%;
             flex-shrink: 1;
             max-width: 18rem;
+        }
+        .local-mail-view-search {
+            max-width: 30rem;
         }
     }
 </style>

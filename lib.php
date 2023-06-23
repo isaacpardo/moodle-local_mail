@@ -21,15 +21,19 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use local_mail\external;
+use local_mail\message;
+use local_mail\user;
+use local_mail\search;
+
 defined('MOODLE_INTERNAL') || die;
 
 require_once($CFG->dirroot . '/local/mail/locallib.php');
 
-
 function local_mail_extend_navigation($root) {
     global $COURSE, $PAGE;
 
-    if (!get_config('local_mail', 'version')) {
+    if (!local_mail_is_installed()) {
         return;
     }
 
@@ -37,8 +41,10 @@ function local_mail_extend_navigation($root) {
 
     // User profile.
 
-    if ($PAGE->url->compare(new moodle_url('/user/view.php'), URL_MATCH_BASE) &&
-            has_capability('local/mail:usemail', $context)) {
+    if (
+        $PAGE->url->compare(new moodle_url('/user/view.php'), URL_MATCH_BASE) &&
+        has_capability('local/mail:usemail', $context)
+    ) {
         $userid = optional_param('id', false, PARAM_INT);
         if (local_mail_valid_recipient($userid)) {
             $vars = array('course' => $COURSE->id, 'recipient' => $userid);
@@ -50,50 +56,63 @@ function local_mail_extend_navigation($root) {
 
     // Users list.
 
-    if ($PAGE->url->compare(new moodle_url('/user/index.php'), URL_MATCH_BASE) &&
-            has_capability('local/mail:usemail', $context)) {
+    if (
+        $PAGE->url->compare(new moodle_url('/user/index.php'), URL_MATCH_BASE) &&
+        has_capability('local/mail:usemail', $context)
+    ) {
         $userid = optional_param('id', false, PARAM_INT);
         $vars = array('course' => $COURSE->id);
         $PAGE->requires->string_for_js('choosedots', 'moodle');
         $PAGE->requires->strings_for_js(array(
-                'bulkmessage',
-                'to',
-                'cc',
-                'bcc',
-                ), 'local_mail');
+            'bulkmessage',
+            'to',
+            'cc',
+            'bcc',
+        ), 'local_mail');
         $PAGE->requires->js_init_code('M.local_mail = ' . json_encode($vars));
         $PAGE->requires->js('/local/mail/users.js');
     }
 
     // Block completion_progress.
 
-    if ($PAGE->url->compare(new moodle_url('/blocks/completion_progress/overview.php'), URL_MATCH_BASE) &&
-            has_capability('local/mail:usemail', $context)) {
+    if (
+        $PAGE->url->compare(new moodle_url('/blocks/completion_progress/overview.php'), URL_MATCH_BASE) &&
+        has_capability('local/mail:usemail', $context)
+    ) {
         $userid = optional_param('id', false, PARAM_INT);
         $vars = array('course' => $COURSE->id);
         $PAGE->requires->string_for_js('choosedots', 'moodle');
         $PAGE->requires->strings_for_js(array(
-                'bulkmessage',
-                'to',
-                'cc',
-                'bcc',
-                ), 'local_mail');
+            'bulkmessage',
+            'to',
+            'cc',
+            'bcc',
+        ), 'local_mail');
         $PAGE->requires->js_init_code('M.local_mail = ' . json_encode($vars));
         $PAGE->requires->js('/local/mail/users.js');
     }
 }
 
-function local_mail_pluginfile($course, $cm, $context, $filearea, $args,
-                               $forcedownload, array $options=array()) {
+function local_mail_pluginfile(
+    $course,
+    $cm,
+    $context,
+    $filearea,
+    $args,
+    $forcedownload,
+    array $options = array()
+) {
     global $SITE, $USER;
 
     require_login($SITE, false);
 
+    $user = user::current();
+
     // Check message.
 
     $messageid = (int) array_shift($args);
-    $message = local_mail_message::fetch($messageid);
-    if ($filearea != 'message' || !$message || !$message->viewable($USER->id, true)) {
+    $message = message::fetch($messageid);
+    if ($filearea != 'message' || !$message || !$user->can_view_files($message)) {
         return false;
     }
 
@@ -117,19 +136,22 @@ function local_mail_pluginfile($course, $cm, $context, $filearea, $args,
  * @return string The HTML
  */
 function local_mail_render_navbar_output(\renderer_base $renderer) {
-    global $PAGE, $USER;
+    global $PAGE;
 
-    if (!isloggedin() || isguestuser() || \core_user::awaiting_action()) {
+    if (!local_mail_is_installed()) {
         return '';
     }
 
-    $menu = local_mail_get_menu();
+    $user = user::current();
+    if (!$user) {
+        return;
+    }
 
     // Fallback link to avoid layout changes during page load.
     $url = new moodle_url('/local/mail/view.php', ['t' => 'inbox']);
     $title = get_string('pluginname', 'local_mail');
     $class = 'btn h-100 d-flex align-items-center px-2 py-0';
-    
+
     $viewurl = new moodle_url('/local/mail/view.php');
     if ($PAGE->url->compare($viewurl, URL_MATCH_BASE)) {
         // Menu is handled from the view page.
@@ -137,18 +159,26 @@ function local_mail_render_navbar_output(\renderer_base $renderer) {
         $spinner = html_writer::tag('div', $icon, ['class' => $class]);
         $container = html_writer::div($spinner, '', ['id' => 'local-mail-navbar']);
         return $container;
-
     } else {
-        // Other page in the site-
+        // Other page in the site.
         $icon = html_writer::tag('i', '', ['class' => 'fa fa-fw fa-envelope-o', 'style' => "font-size: 16px"]);
         $attributes = ['href' => $url, 'class' => $class, 'title' => $title];
-        $link = html_writer::tag('a', $icon, $attributes);    
+        $link = html_writer::tag('a', $icon, $attributes);
         $container = html_writer::div($link, '', ['id' => 'local-mail-navbar']);
-    
+
         // Pass all data via a script tag to avoid web service requests.
-        $strings = local_mail_get_strings();
+        $strings = external::get_strings_raw();
+
+        $search = new search($user);
+        $search->unread = true;
+        $search->roles = [message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC];
+        $unread = $search->count();
+        $search = new search($user);
+        $search->draft = true;
+        $drafts = $search->count();
+
         $data = [
-            'settings' => local_mail_get_settings(),
+            'settings' => external::get_settings_raw(),
             'strings' => [
                 'togglemailmenu' => $strings['togglemailmenu'],
                 'compose' => $strings['compose'],
@@ -159,9 +189,12 @@ function local_mail_render_navbar_output(\renderer_base $renderer) {
                 'drafts' => $strings['drafts'],
                 'trash' => $strings['trash'],
             ],
-            'menu' => $menu,
+            'unread' => $unread,
+            'drafts' => $drafts,
+            'courses' => external::get_courses_raw(),
+            'labels' => external::get_labels_raw(),
         ];
-        $datascript = html_writer::script('window.local_mail_navbar_data = '. json_encode($data));
+        $datascript = html_writer::script('window.local_mail_navbar_data = ' . json_encode($data));
         $sveltescript = local_mail_svelte_script('src/navbar.ts');
         return  $container . $datascript . $sveltescript;
     }
