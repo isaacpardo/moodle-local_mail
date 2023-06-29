@@ -47,7 +47,7 @@ npm install
 npm run build
 ```
 
-The production code is stored in `local/mail/dist`.
+The production code is stored in `local/mail/build`.
 
 ### Unit tests
 
@@ -83,7 +83,9 @@ php local/mail/cli/generate.php
 ## Copyright
 
 Copyright © 2012,2013 Institut Obert de Catalunya
+
 Copyright © 2014-2023 Marc Català and Albert Gasset
+
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

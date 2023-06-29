@@ -8,8 +8,8 @@
     export let title: string;
     export let cancelText = '';
     export let confirmText = '';
-    export let handleCancel: () => any;
-    export let handleConfirm: (() => any) | undefined = undefined;
+    export let handleCancel: () => void;
+    export let handleConfirm: (() => void) | undefined = undefined;
     export let confirmClass = 'btn-primary';
     export let confirmDisabled = false;
 
@@ -39,9 +39,8 @@
     role="dialog"
     aria-label={title}
     aria-modal="true"
-    on:keyup={handleKey}
     bind:this={node}
-    transition:fly={{ y: -100 }}
+    transition:fly|global={{ y: -100 }}
 >
     <div class="modal-dialog">
         <div class="modal-content" use:blur={handleCancel}>
@@ -79,4 +78,4 @@
     </div>
 </div>
 
-<div class="modal-backdrop show" transition:fade />
+<div class="modal-backdrop show" transition:fade|global />

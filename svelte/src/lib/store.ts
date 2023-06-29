@@ -21,7 +21,6 @@ import {
     type Strings,
     type UpdateLabelRequest,
     type MessageSummary,
-    type SearchMessagesRequest,
 } from './services';
 import { getViewParamsFromUrl, setUrlFromViewParams } from './url';
 import { replaceStringParams, sleep } from './utils';
@@ -141,10 +140,10 @@ export async function createStore(data: InitialData) {
             requests: ServiceRequest[],
             newParams?: ViewParams,
             redirect = false,
-        ): Promise<any[]> {
+        ): Promise<unknown[]> {
             const actionId = ++currentActionId;
 
-            let params = newParams || store.get().params;
+            const params = newParams || store.get().params;
             const perpage = store.get().preferences.perpage;
 
             update((state) => ({ ...state, loading: true }));
@@ -243,7 +242,7 @@ export async function createStore(data: InitialData) {
                 });
             }
 
-            let responses: any[];
+            let responses: unknown[];
             try {
                 responses = await callServices(requests);
             } catch (error) {
@@ -279,11 +278,11 @@ export async function createStore(data: InitialData) {
                 }
             }
 
-            let totalCount = responses.pop() as number;
-            let labels = responses.pop() as ReadonlyArray<Label>;
-            let courses = responses.pop() as ReadonlyArray<Course>;
-            let drafts = responses.pop() as number;
-            let unread = responses.pop() as number;
+            const totalCount = responses.pop() as number;
+            const labels = responses.pop() as ReadonlyArray<Label>;
+            const courses = responses.pop() as ReadonlyArray<Course>;
+            const drafts = responses.pop() as number;
+            const unread = responses.pop() as number;
 
             // Check if the course or label exists.
             if (
@@ -341,7 +340,7 @@ export async function createStore(data: InitialData) {
 
             const responses = await store.callServicesAndRefresh([request]);
 
-            return responses.pop();
+            return responses.pop() as number | undefined;
         },
 
         async deleteLabel(labelid: number) {
@@ -446,7 +445,7 @@ export async function createStore(data: InitialData) {
             );
 
             // Redirect if deleting message in single view.
-            let params: ViewParams = { ...store.get().params, messageid: undefined };
+            const params: ViewParams = { ...store.get().params, messageid: undefined };
             await store.callServicesAndRefresh(requests, params, true);
 
             if (deleted != DeletedStatus.DeletedForever) {
@@ -477,33 +476,33 @@ export async function createStore(data: InitialData) {
             }));
         },
 
-        async setLabels(messageids: number[], added: number[], removed: number[]) {
-            const requests: SetLabelsRequest[] = [];
+        async setLabels(added: number[], removed: number[]) {
+            this.updateMessages((message, state) => {
+                if (!state.selectedMessages.has(message.id)) {
+                    return message;
+                }
+                return {
+                    ...message,
+                    labels: state.labels.filter((label) => {
+                        if (added.includes(label.id)) {
+                            return true;
+                        } else if (removed.includes(label.id)) {
+                            return false;
+                        } else {
+                            return message.labels.findIndex((l) => l.id == label.id) >= 0;
+                        }
+                    }),
+                };
+            });
 
-            update((state) => ({
-                ...state,
-                messages: state.listMessages.map((message) => {
-                    if (messageids.includes(message.id)) {
-                        const labels = state.labels.filter((label) => {
-                            if (added.includes(label.id)) {
-                                return true;
-                            } else if (removed.includes(label.id)) {
-                                return false;
-                            } else {
-                                return message.labels.findIndex((l) => l.id == label.id) >= 0;
-                            }
-                        });
-                        requests.push({
-                            methodname: 'set_labels',
-                            messageid: message.id,
-                            labelids: labels.map((label) => label.id),
-                        });
-                        return { ...message, labels };
-                    } else {
-                        return message;
-                    }
-                }),
-            }));
+            const requests: SetLabelsRequest[] = [];
+            store.get().selectedMessages.forEach((message) => {
+                requests.push({
+                    methodname: 'set_labels',
+                    messageid: message.id,
+                    labelids: message.labels.map((label) => label.id),
+                });
+            });
 
             await store.callServicesAndRefresh(requests);
         },
@@ -535,16 +534,10 @@ export async function createStore(data: InitialData) {
         },
 
         async setStarred(messageids: ReadonlyArray<number>, starred: boolean) {
-            update((state) => ({
-                ...state,
-                messages: state.listMessages.map((message) => {
-                    if (messageids.includes(message.id)) {
-                        return { ...message, starred };
-                    } else {
-                        return message;
-                    }
-                }),
-            }));
+            this.updateMessages((message) =>
+                messageids.includes(message.id) ? { ...message, starred } : message,
+            );
+
             const requests = messageids.map(
                 (messageid): SetStarredRequest => ({
                     methodname: 'set_starred',
@@ -557,18 +550,10 @@ export async function createStore(data: InitialData) {
         },
 
         async setUnread(messageids: ReadonlyArray<number>, unread: boolean) {
-            const params: ViewParams = { ...store.get().params, messageid: undefined };
+            this.updateMessages((message) =>
+                messageids.includes(message.id) ? { ...message, unread } : message,
+            );
 
-            update((state) => ({
-                ...state,
-                messages: state.listMessages.map((message) => {
-                    if (messageids.includes(message.id)) {
-                        return { ...message, unread };
-                    } else {
-                        return message;
-                    }
-                }),
-            }));
             const requests = messageids.map(
                 (messageid): SetUnreadRequest => ({
                     methodname: 'set_unread',
@@ -576,6 +561,9 @@ export async function createStore(data: InitialData) {
                     unread,
                 }),
             );
+
+            const params: ViewParams = { ...store.get().params, messageid: undefined };
+
             await store.callServicesAndRefresh(requests, params);
         },
 
@@ -620,6 +608,20 @@ export async function createStore(data: InitialData) {
             };
 
             await store.callServicesAndRefresh([request]);
+        },
+
+        updateMessages(callback: <T extends MessageSummary>(message: T, state: State) => T) {
+            update((state) => ({
+                ...state,
+                listMessages: state.listMessages.map((message) => callback(message, state)),
+                message: state.message ? callback(state.message, state) : undefined,
+                selectedMessages: new Map(
+                    Array.from(state.selectedMessages.entries()).map(([id, message]) => [
+                        id,
+                        callback(message, state),
+                    ]),
+                ),
+            }));
         },
     };
 
