@@ -9,6 +9,7 @@
     import List from './List.svelte';
     import Menu from './Menu.svelte';
     import Message from './Message.svelte';
+    import MessageForm from './MessageForm.svelte';
     import PerPageSelect from './PerPageSelect.svelte';
     import SearchBox from './SearchBox.svelte';
     import Toasts from './Toasts.svelte';
@@ -38,7 +39,7 @@
             ? $store.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
             : '';
 
-    $: title = $store.message ? $store.message.subject : heading;
+    $: title = $store.message ? $store.message.subject.trim() || $store.strings.nosubject : heading;
 
     onMount(() => {
         store.setViewportSize(window.innerWidth);
@@ -50,11 +51,20 @@
             viewNode.scrollIntoView();
         }
     });
+
+    const handleBeforeUnload = (event: Event) => {
+        if ($store.draftData) {
+            event.preventDefault();
+            store.updateDraft($store.draftData, true);
+            return '';
+        }
+    };
 </script>
 
 <svelte:window
     on:resize={() => store.setViewportSize(window.innerWidth)}
     on:popstate={() => store.navigate(getViewParamsFromUrl())}
+    on:beforeunload={handleBeforeUnload}
 />
 <svelte:head>
     <title>{title} - {$store.strings.pluginname}</title>
@@ -76,12 +86,18 @@
         </h1>
 
         <div class="local-mail-view-main-column d-flex mb-4">
-            <div class="local-mail-view-search flex-shrink-1">
+            <div class="local-mail-view-search">
                 <SearchBox {store} />
             </div>
             {#if $store.viewSize < ViewSize.LG}
-                <div class="flex-shrink-1 text-truncate d-flex">
-                    <ComposeButton strings={$store.strings} courseid={$store.params.courseid} />
+                <div class="text-truncate d-flex">
+                    <ComposeButton
+                        strings={$store.strings}
+                        courseid={$store.params.courseid}
+                        courses={$store.courses}
+                        onClick={store.navigate}
+                        onError={store.setError}
+                    />
                 </div>
             {/if}
         </div>
@@ -91,7 +107,13 @@
     <div class="row mb-3">
         {#if $store.viewSize >= ViewSize.LG}
             <div class="local-mail-view-side-column">
-                <ComposeButton strings={$store.strings} courseid={$store.params.courseid} />
+                <ComposeButton
+                    strings={$store.strings}
+                    courseid={$store.params.courseid}
+                    courses={$store.courses}
+                    onClick={store.navigate}
+                    onError={store.setError}
+                />
             </div>
         {/if}
         <div class="local-mail-view-main-column d-flex">
@@ -116,7 +138,9 @@
             </div>
         {/if}
         <div class="local-mail-view-main-column">
-            {#if $store.message}
+            {#if $store.message?.draft && $store.draftForm}
+                <MessageForm {store} message={$store.message} form={$store.draftForm} />
+            {:else if $store.message}
                 <Message {store} message={$store.message} />
             {:else}
                 <List {store} />
@@ -163,6 +187,13 @@
 
     .local-mail-view :global(.dropdown-menu) {
         z-index: 1040;
+        box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .local-mail-view :global(.dropdown-menu),
+    .local-mail-view :global(.dropdown-menu .list-group-item),
+    .local-mail-view :global(.dropdown-menu .form-control) {
+        background-color: var(--light);
     }
 
     .local-mail-view :global(.dropdown-item:not(:focus):hover) {

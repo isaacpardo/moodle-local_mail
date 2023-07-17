@@ -1,31 +1,7 @@
 import type { SearchParams, ViewParams, ViewTray } from './store';
 
-export function composeUrl(messageid: number): string {
-    return baseUrl() + 'compose.php?m=' + messageid;
-}
-
-export function createUrl(courseid?: number): string {
-    let url = baseUrl() + 'create.php?sesskey=' + sesskey();
-    if (courseid) {
-        url += '&c=' + courseid;
-    }
-    return url;
-}
-
-export function forwardeUrl(messageid: number): string {
-    return baseUrl() + 'view.php?forward=1&sesskey=' + sesskey() + '&m=' + messageid;
-}
-
 export function preferencesUrl(): string {
     return baseUrl() + 'preferences.php';
-}
-
-export function replyUrl(messageid: number): string {
-    return baseUrl() + 'view.php?reply=1&sesskey=' + sesskey() + '&m=' + messageid;
-}
-
-export function replyAllUrl(messageid: number): string {
-    return baseUrl() + 'view.php?replyall=1&sesskey=' + sesskey() + '&m=' + messageid;
 }
 
 export function viewUrl(params: ViewParams): string {
@@ -40,7 +16,7 @@ export function viewUrl(params: ViewParams): string {
     if (params.messageid) {
         url += '&m=' + params.messageid;
     }
-    if (params.offset) {
+    if (params.search && params.offset) {
         url += '&o=' + params.offset;
     }
     if (params.search?.content) {
@@ -106,8 +82,4 @@ export function setUrlFromViewParams(params: ViewParams, replace: boolean) {
 
 function baseUrl() {
     return window.M.cfg.wwwroot + '/local/mail/';
-}
-
-function sesskey() {
-    return window.M.cfg.sesskey;
 }

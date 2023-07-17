@@ -2,14 +2,20 @@ import { get, writable } from 'svelte/store';
 import {
     callServices,
     DeletedStatus,
+    type CountMessagesResponse,
     type Course,
     type CreateLabelRequest,
     type DeleteLabelRequest,
     type EmptyTrashRequest,
+    type GetCoursesResponse,
+    type GetLabelsResponse,
+    type GetMessageResponse,
     type Label,
     type Message,
+    type MessageQuery,
+    type MessageSummary,
     type Preferences,
-    type Query,
+    type SearchMessagesResponse,
     type ServiceError,
     type ServiceRequest,
     type SetDeletedRequest,
@@ -20,7 +26,11 @@ import {
     type SetUnreadRequest,
     type Strings,
     type UpdateLabelRequest,
-    type MessageSummary,
+    type MessageForm,
+    RecipientType,
+    type MessageData,
+    type ReplyMessageRequest,
+    type ForwardMessageRequest,
 } from './services';
 import { getViewParamsFromUrl, setUrlFromViewParams } from './url';
 import { replaceStringParams, sleep } from './utils';
@@ -82,6 +92,11 @@ export interface State {
     readonly nextMessageId?: number;
     readonly prevMessageId?: number;
 
+    /* Data used for editing drafts. */
+    readonly draftForm?: MessageForm;
+    readonly draftData?: MessageData;
+    readonly draftSaved?: boolean;
+
     /* Transient interface state. */
     readonly loading: boolean;
     readonly error?: ServiceError;
@@ -102,6 +117,7 @@ export interface InitialData {
 
 export async function createStore(data: InitialData) {
     let currentActionId = 0;
+    let draftTimeoutId = 0;
 
     const { subscribe, update } = writable<State>({
         /* Info */
@@ -133,7 +149,7 @@ export async function createStore(data: InitialData) {
         subscribe,
 
         get(): State {
-            return get(this);
+            return get(store);
         },
 
         async callServicesAndRefresh(
@@ -143,15 +159,27 @@ export async function createStore(data: InitialData) {
         ): Promise<unknown[]> {
             const actionId = ++currentActionId;
 
+            const messageid = store.get().message?.id;
+            const draftData = store.get().draftData;
             const params = newParams || store.get().params;
             const perpage = store.get().preferences.perpage;
 
             update((state) => ({ ...state, loading: true }));
 
+            // Save draft.
+            if (messageid && draftData) {
+                clearTimeout(draftTimeoutId);
+                requests.unshift({
+                    methodname: 'update_message',
+                    messageid,
+                    data: draftData,
+                });
+            }
+
             // Number of unread messages.
             requests.push({
                 methodname: 'count_messages',
-                query: { roles: ['to', 'cc', 'bcc'], unread: true },
+                query: { roles: Object.values(RecipientType), unread: true },
             });
 
             // Number of drafts.
@@ -170,7 +198,7 @@ export async function createStore(data: InitialData) {
                 methodname: 'get_labels',
             });
 
-            const query: Query = {
+            const query: MessageQuery = {
                 courseid: params.courseid,
                 labelid: params.tray == 'label' ? params.labelid : undefined,
                 draft: params.tray == 'drafts' ? true : params.tray == 'sent' ? false : undefined,
@@ -258,13 +286,13 @@ export async function createStore(data: InitialData) {
 
             if (params.messageid) {
                 if (!params.search) {
-                    messageOffset = responses.pop() as number;
+                    messageOffset = responses.pop() as CountMessagesResponse;
                 }
-                prevMessageId = (responses.pop() as MessageSummary[])[0]?.id;
-                nextMessageId = (responses.pop() as MessageSummary[])[0]?.id;
-                message = responses.pop() as Message;
+                prevMessageId = (responses.pop() as SearchMessagesResponse)[0]?.id;
+                nextMessageId = (responses.pop() as SearchMessagesResponse)[0]?.id;
+                message = responses.pop() as GetMessageResponse;
             } else {
-                listMessages = responses.pop() as ReadonlyArray<MessageSummary>;
+                listMessages = responses.pop() as SearchMessagesResponse;
                 if (params.search) {
                     if (params.search.reverse) {
                         prevMessageId = listMessages[perpage]?.id;
@@ -278,11 +306,14 @@ export async function createStore(data: InitialData) {
                 }
             }
 
-            const totalCount = responses.pop() as number;
-            const labels = responses.pop() as ReadonlyArray<Label>;
-            const courses = responses.pop() as ReadonlyArray<Course>;
-            const drafts = responses.pop() as number;
-            const unread = responses.pop() as number;
+            const totalCount = responses.pop() as CountMessagesResponse;
+            const labels = responses.pop() as GetLabelsResponse;
+            const courses = responses.pop() as GetCoursesResponse;
+            const drafts = responses.pop() as CountMessagesResponse;
+            const unread = responses.pop() as CountMessagesResponse;
+            if (messageid && draftData) {
+                responses.shift();
+            }
 
             // Check if the course or label exists.
             if (
@@ -291,6 +322,25 @@ export async function createStore(data: InitialData) {
             ) {
                 await store.navigate({ tray: 'inbox' }, true);
                 return responses;
+            }
+
+            // Fetch form if message is a draft.
+            let draftForm: MessageForm | undefined;
+            if (message?.draft && message?.id != messageid) {
+                const draftRequests: ServiceRequest[] = [
+                    {
+                        methodname: 'get_message_form',
+                        messageid: message.id,
+                    },
+                ];
+                let draftResponses: unknown[];
+                try {
+                    draftResponses = await callServices(draftRequests);
+                } catch (error) {
+                    store.setError(error as ServiceError);
+                    return responses;
+                }
+                draftForm = draftResponses.pop() as MessageForm;
             }
 
             // Check if the user has done some other action during the web service calls.
@@ -313,6 +363,9 @@ export async function createStore(data: InitialData) {
                     message,
                     nextMessageId,
                     prevMessageId,
+                    draftForm: message?.id != messageid ? draftForm : state.draftForm,
+                    draftData: undefined,
+                    draftSaved: message?.id == messageid ? draftData != null : false,
                     selectedMessages: new Map(
                         message
                             ? [[message.id, message]]
@@ -323,8 +376,23 @@ export async function createStore(data: InitialData) {
                                   .map((message) => [message.id, message]),
                     ),
                     loading: false,
+                    // Scroll to top and prevent animations if changing page.
+                    navigationId:
+                        redirect ||
+                        params.tray != state.params.tray ||
+                        params.courseid != state.params.courseid ||
+                        params.labelid != state.params.labelid ||
+                        params.messageid != state.params.messageid ||
+                        params.offset != state.params.offset
+                            ? state.navigationId + 1
+                            : state.navigationId,
                 };
             });
+
+            // Display draft saved notification if navigated to another page.
+            if (messageid && draftData && messageid != message?.id) {
+                store.showToast({ text: store.get().strings.draftsaved });
+            }
 
             setUrlFromViewParams(params, redirect);
 
@@ -358,6 +426,23 @@ export async function createStore(data: InitialData) {
             await store.callServicesAndRefresh([request]);
         },
 
+        async forward(message: Message) {
+            const params = store.get().params;
+
+            const request: ForwardMessageRequest = {
+                methodname: 'forward_message',
+                messageid: message.id,
+            };
+
+            const responses = await store.callServicesAndRefresh([request]);
+
+            await store.navigate({
+                tray: 'drafts',
+                messageid: responses.pop() as number,
+                courseid: params.courseid ? message.course.id : undefined,
+            });
+        },
+
         hideToast(toast: Toast) {
             update((state) => ({
                 ...state,
@@ -367,7 +452,7 @@ export async function createStore(data: InitialData) {
 
         async init() {
             const requests: ServiceRequest[] = [];
-            if (this.get().settings.incrementalsearch) {
+            if (store.get().settings.incrementalsearch) {
                 requests.push({
                     methodname: 'search_messages',
                     query: { deleted: false },
@@ -394,12 +479,38 @@ export async function createStore(data: InitialData) {
                 });
             }
             await store.callServicesAndRefresh(requests, params, redirect);
+        },
 
-            // Scroll to top and prevent animations.
-            update((state) => ({
-                ...state,
-                navigationId: state.navigationId + 1,
-            }));
+        async navigateToList(redirect = false) {
+            const state = store.get();
+            const params: ViewParams = {
+                ...state.params,
+                messageid: undefined,
+                offset: state.params.search
+                    ? Math.floor((state.messageOffset || 0) / state.preferences.perpage) *
+                      state.preferences.perpage
+                    : undefined,
+            };
+
+            await store.callServicesAndRefresh([], params, redirect);
+        },
+
+        async reply(message: Message, all: boolean) {
+            const params = store.get().params;
+
+            const request: ReplyMessageRequest = {
+                methodname: 'reply_message',
+                messageid: message.id,
+                all,
+            };
+
+            const responses = await store.callServicesAndRefresh([request]);
+
+            await store.navigate({
+                tray: 'drafts',
+                messageid: responses.pop() as number,
+                courseid: params.courseid ? message.course.id : undefined,
+            });
         },
 
         selectAll(type: SelectAllType) {
@@ -423,8 +534,8 @@ export async function createStore(data: InitialData) {
         },
 
         async selectCourse(id?: number) {
-            const params = this.get().params;
-            await this.navigate({
+            const params = store.get().params;
+            await store.navigate({
                 ...params,
                 courseid: id,
                 offset: 0,
@@ -433,6 +544,29 @@ export async function createStore(data: InitialData) {
                     ? { ...params.search, startid: undefined, reverse: undefined }
                     : undefined,
             });
+        },
+
+        async sendMessage() {
+            const params = store.get().params;
+            const message = store.get().message;
+
+            if (!message?.draft) {
+                return;
+            }
+
+            const request: ServiceRequest = {
+                methodname: 'send_message',
+                messageid: message.id,
+            };
+
+            const newParams: ViewParams = {
+                tray: 'inbox',
+                courseid: params.courseid ? message.course.id : undefined,
+            };
+
+            await store.callServicesAndRefresh([request], newParams);
+
+            store.showToast({ text: store.get().strings.messagesent });
         },
 
         async setDeleted(ids: ReadonlyArray<number>, deleted: DeletedStatus, allowUndo: boolean) {
@@ -477,7 +611,7 @@ export async function createStore(data: InitialData) {
         },
 
         async setLabels(added: number[], removed: number[]) {
-            this.updateMessages((message, state) => {
+            store.updateStateMessages((message, state) => {
                 if (!state.selectedMessages.has(message.id)) {
                     return message;
                 }
@@ -520,21 +654,20 @@ export async function createStore(data: InitialData) {
                 ...state,
                 preferences: { ...state.preferences, perpage },
             }));
+            const params = store.get().params;
+            const newParams: ViewParams = {
+                ...params,
+                offset: params.offset ? Math.trunc(params.offset / perpage) * perpage : undefined,
+            };
             const request: SetPreferencesRequest = {
                 methodname: 'set_preferences',
                 preferences: { perpage },
             };
-            await store.callServicesAndRefresh([request]);
-
-            // Scroll to top and prevent animations.
-            update((state) => ({
-                ...state,
-                navigationId: state.navigationId + 1,
-            }));
+            await store.callServicesAndRefresh([request], newParams, true);
         },
 
         async setStarred(messageids: ReadonlyArray<number>, starred: boolean) {
-            this.updateMessages((message) =>
+            store.updateStateMessages((message) =>
                 messageids.includes(message.id) ? { ...message, starred } : message,
             );
 
@@ -550,7 +683,7 @@ export async function createStore(data: InitialData) {
         },
 
         async setUnread(messageids: ReadonlyArray<number>, unread: boolean) {
-            this.updateMessages((message) =>
+            store.updateStateMessages((message) =>
                 messageids.includes(message.id) ? { ...message, unread } : message,
             );
 
@@ -599,6 +732,61 @@ export async function createStore(data: InitialData) {
             }
         },
 
+        updateDraft(data: MessageData, force: boolean) {
+            const message = store.get().message;
+            const prevData = store.get().draftData;
+            if (!message) {
+                return;
+            }
+
+            update((state) => ({
+                ...state,
+                draftData: data,
+                draftSaved: false,
+            }));
+
+            const actionId = ++currentActionId;
+
+            let delay = 3000;
+            if (force) {
+                delay = 0;
+            } else if (prevData) {
+                delay = Math.max(0, message.time * 1000 + delay - Date.now());
+            }
+            clearTimeout(draftTimeoutId);
+
+            draftTimeoutId = setTimeout(async () => {
+                const requests: ServiceRequest[] = [
+                    {
+                        methodname: 'update_message',
+                        messageid: message.id,
+                        data,
+                    },
+                    {
+                        methodname: 'get_message',
+                        messageid: message.id,
+                    },
+                ];
+
+                let responses: unknown[];
+                try {
+                    responses = await callServices(requests);
+                } catch (error) {
+                    store.setError(error as ServiceError);
+                    return;
+                }
+                const updatedMessage = responses.pop() as Message;
+                if (actionId == currentActionId) {
+                    update((state) => ({
+                        ...state,
+                        message: updatedMessage,
+                        draftData: undefined,
+                        draftSaved: true,
+                    }));
+                }
+            }, delay);
+        },
+
         async updateLabel(labelid: number, name: string, color: string) {
             const request: UpdateLabelRequest = {
                 methodname: 'update_label',
@@ -610,7 +798,7 @@ export async function createStore(data: InitialData) {
             await store.callServicesAndRefresh([request]);
         },
 
-        updateMessages(callback: <T extends MessageSummary>(message: T, state: State) => T) {
+        updateStateMessages(callback: <T extends MessageSummary>(message: T, state: State) => T) {
             update((state) => ({
                 ...state,
                 listMessages: state.listMessages.map((message) => callback(message, state)),
