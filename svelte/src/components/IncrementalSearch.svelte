@@ -3,23 +3,22 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import {
-        callServices,
-        type MessageQuery,
-        type MessageSummary,
-        type ServiceError,
-        type SearchMessagesRequest,
         RecipientType,
-    } from '../lib/services';
-    import type { Store, ViewParams } from '../lib/store';
+        type MessageSummary,
+        type ViewParams,
+        type ServiceError,
+    } from '../lib/state';
+    import { callServices, type MessageQuery, type SearchMessagesRequest } from '../lib/services';
+    import type { Store } from '../lib/store';
+    import { viewUrl } from '../lib/url';
     import ListMessageSubject from './ListMessageSubject.svelte';
     import ListMessageUsers from './ListMessageUsers.svelte';
-    import { viewUrl } from '../lib/url';
 
     export let store: Store;
     export let enabled: boolean;
     export let content: string;
     export let loading = false;
-    export let handleClick: (params: ViewParams) => void;
+    export let onClick: (params: ViewParams) => void;
 
     $: if (enabled) {
         search(content);
@@ -82,7 +81,7 @@
         return (event: MouseEvent) => {
             if (!message.draft) {
                 event.preventDefault();
-                handleClick(messageParams(message, i));
+                onClick(messageParams(message, i));
             }
         };
     };
@@ -137,7 +136,7 @@
             <a
                 class="dropdown-item py-2"
                 href={viewUrl(allParams)}
-                on:click|preventDefault={() => handleClick(allParams)}
+                on:click|preventDefault={() => onClick(allParams)}
             >
                 {$store.strings.searchallmessages}
             </a>

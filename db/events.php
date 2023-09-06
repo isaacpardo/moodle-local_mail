@@ -26,6 +26,6 @@ defined('MOODLE_INTERNAL') || die;
 $observers = array(
     array(
         'eventname' => 'core\event\course_deleted',
-        'callback'  => 'local_mail_observer::course_deleted',
+        'callback'  => 'local_mail\observer::course_deleted',
     ),
 );

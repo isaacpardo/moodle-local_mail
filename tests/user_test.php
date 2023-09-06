@@ -73,7 +73,7 @@ class user_test extends testcase {
 
         // Reference of a draft.
 
-        $data2 = message_data::forward($message1, $user2);
+        $data2 = message_data::reply($message1, $user2, false);
         $data2->to = [$user4];
         $data2->time = $time2;
         $message2 = message::create($data2);
@@ -182,6 +182,19 @@ class user_test extends testcase {
         self::assertFalse($user2->can_view_message($message));
     }
 
+    public function test_current() {
+        $generator = self::getDataGenerator();
+        $record = $generator->create_user();
+
+        self::setUser($record->id);
+        self::assertEquals(new user($record), user::current());
+
+        // Not logged in.
+
+        self::setUser(null);
+        self::assertNull(user::current());
+    }
+
     public function test_fetch() {
         $generator = self::getDataGenerator();
         $record = $generator->create_user();
@@ -205,16 +218,16 @@ class user_test extends testcase {
 
     public function test_fetch_many() {
         $generator = self::getDataGenerator();
-        $record1 = $generator->create_user(['firstname' => 'Pau', 'lastname' => 'Rossell']);
-        $record2 = $generator->create_user(['firstname' => 'Anna', 'lastname' => 'Garcia']);
-        $record3 = $generator->create_user(['firstname' => 'Manel', 'lastname' => 'Porta']);
+        $record1 = $generator->create_user();
+        $record2 = $generator->create_user();
+        $record3 = $generator->create_user();
 
         self::assertEquals([], user::fetch_many([]));
 
-        $users = user::fetch_many([$record1->id, 0, $record2->id, $record1->id, $record3->id]);
+        $users = user::fetch_many([$record3->id, 0, $record1->id, $record3->id, $record2->id, $record3->id]);
 
         self::assertIsArray($users);
-        self::assertEquals([$record2->id, $record3->id, $record1->id], array_keys($users));
+        self::assertEquals([$record3->id, $record1->id, $record2->id], array_keys($users));
         self::assertEquals(user::fetch($record1->id), $users[$record1->id]);
         self::assertEquals(user::fetch($record2->id), $users[$record2->id]);
         self::assertEquals(user::fetch($record3->id), $users[$record3->id]);
@@ -241,10 +254,17 @@ class user_test extends testcase {
 
     public function test_profile_url() {
         $generator = self::getDataGenerator();
-        $record = $generator->create_user();
-        $user = user::fetch($record->id);
+        $user = new user($generator->create_user());
+        $course = new course($generator->create_course());
 
-        $url = new \moodle_url('/user/profile.php', ['id' => $record->id]);
-        self::assertEquals($url->out(false), $user->profile_url());
+        $url = new \moodle_url('/user/view.php', ['id' => $user->id, 'course' => $course->id]);
+        self::assertEquals($url->out(false), $user->profile_url($course));
+    }
+
+    public function test_sortorder() {
+        $generator = self::getDataGenerator();
+        $user = new user($generator->create_user(['firstname' => 'Lena', 'lastname' => 'Becker']));
+
+        self::assertEquals(sprintf("Becker\nLena\n%010d", $user->id), $user->sortorder());
     }
 }

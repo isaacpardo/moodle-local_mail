@@ -67,32 +67,6 @@ class course {
     }
 
     /**
-     * Deletes all messages from a course.
-     *
-     * @param int $courseid ID of the course.
-     */
-    public static function delete_messages(int $courseid): void {
-        global $DB;
-
-        $transaction = $DB->start_delegated_transaction();
-
-        $DB->delete_records('local_mail_message_labels', ['courseid' => $courseid]);
-
-        $DB->delete_records('local_mail_message_users', ['courseid' => $courseid]);
-
-        $select = 'messageid IN (SELECT id FROM {local_mail_messages} WHERE courseid = :courseid)';
-        $DB->delete_records_select('local_mail_message_refs', $select, ['courseid' => $courseid]);
-
-        $DB->delete_records('local_mail_messages', ['courseid' => $courseid]);
-
-        $transaction->allow_commit();
-
-        $context = \context_course::instance($courseid);
-        $fs = get_file_storage();
-        $fs->delete_area_files($context->id, 'local_mail');
-    }
-
-    /**
      * Fetches a course from the database
      *
      * @param int $id ID of the course to fetch.
@@ -135,7 +109,6 @@ class course {
             return [];
         }
 
-        $ids = array_unique($ids);
         list($sqlid, $params) = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'courseid');
         $select = "id $sqlid AND id <> :siteid";
         $params['siteid'] = SITEID;
@@ -162,8 +135,7 @@ class course {
             return [];
         }
 
-        $accessall = has_capability('moodle/site:accessallgroups', $this->context(), $user->id);
-        $userid = $accessall || $this->groupmode == VISIBLEGROUPS ? 0 : $user->id;
+        $userid = $this->groupmode == VISIBLEGROUPS ? 0 : $user->id;
         $groups = groups_get_all_groups($this->id, $userid, $this->defaultgroupingid);
 
         $result = [];
@@ -189,5 +161,15 @@ class course {
             }
         }
         return $result;
+    }
+
+    /**
+     * URL of the course.
+     *
+     * @return string
+     */
+    public function url(): string {
+        $url = new \moodle_url('/course/view.php', ['id' => $this->id]);
+        return $url->out(false);
     }
 }

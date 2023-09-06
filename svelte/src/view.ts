@@ -1,6 +1,6 @@
 import Navbar from './components/Navbar.svelte';
 import View from './components/View.svelte';
-import type { Preferences, Settings, Strings } from './lib/services';
+import type { Preferences, Settings, Strings } from './lib/state';
 import { createStore } from './lib/store';
 
 import './global.css';
@@ -20,10 +20,13 @@ async function init() {
         settings: data.settings as Settings,
         preferences: data.preferences as Preferences,
         strings: data.strings as Strings,
+        mobile: Boolean(data.mobile),
     });
+
     if (viewTarget) {
         new View({ target: viewTarget, props: { store } });
     }
+
     if (navbarTarget) {
         // Remove fallback link created in local_mail_render_navbar_output.
         navbarTarget.innerHTML = '';
@@ -39,7 +42,7 @@ async function init() {
                 courses: store.get().courses,
                 labels: store.get().labels,
                 onClick: store.navigate,
-                onError: store.setError,
+                onComposeClick: store.createMessage,
             },
         });
 

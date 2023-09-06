@@ -76,11 +76,11 @@ class message_data {
         $data->sender = $message->sender();
         $data->course = $message->course;
         foreach ($message->recipients() as $user) {
-            if ($message->roles[$user->id] == message::ROLE_TO) {
+            if ($message->role($user) == message::ROLE_TO) {
                 $data->to[] = $user;
-            } else if ($message->roles[$user->id] == message::ROLE_CC) {
+            } else if ($message->role($user) == message::ROLE_CC) {
                 $data->cc[] = $user;
-            } else if ($message->roles[$user->id] == message::ROLE_BCC) {
+            } else if ($message->role($user) == message::ROLE_BCC) {
                 $data->bcc[] = $user;
             }
         }
@@ -114,7 +114,7 @@ class message_data {
         $configmaxbytes = get_config('local_mail', 'maxbytes') ?: $CFG->maxbytes;
         $configmaxfiles = get_config('local_mail', 'maxfiles');
         $maxbytes = get_user_max_upload_file_size($context,  $CFG->maxbytes, 0, $configmaxbytes);
-        $maxfiles = is_numeric($configmaxfiles) ? (int) $configmaxfiles : LOCAL_MAIL_MAXFILES;
+        $maxfiles = is_numeric($configmaxfiles) ? (int) $configmaxfiles : 20;
         return [
             'accepted_types' => '*',
             'maxbytes' => $maxbytes,
@@ -133,10 +133,12 @@ class message_data {
      */
     public static function forward(message $message, user $sender): self {
         assert(!$message->draft);
-        assert(isset($message->users[$sender->id]));
+        assert($sender->id == $message->sender()->id || $message->has_recipient($sender));
 
-        $data = self::new($message->course, $sender);
-        $data->reference = $message;
+        $data = new self();
+        $data->sender = $sender;
+        $data->course = $message->course;
+        $data->time = time();
 
         // Subject.
         $data->subject = $message->subject;
@@ -144,6 +146,30 @@ class message_data {
         if (\core_text::strpos($data->subject, $prefix) !== 0) {
             $data->subject = $prefix . ' ' . $data->subject;
         }
+
+        // Content.
+        $data->draftitemid = 0;
+        $originalcontent = file_prepare_draft_area(
+            $data->draftitemid,
+            $message->course->context()->id,
+            'local_mail',
+            'message',
+            $message->id,
+            self::file_options(),
+            $message->content
+        );
+        $data->content = '<p><br></p>'
+            . '<p>'
+            . '--------- ' . get_string('forwardedmessage', 'local_mail') . ' ---------<br>'
+            . get_string('from', 'local_mail') . ': '
+            . $message->sender()->fullname() . '<br>'
+            . get_string('date', 'local_mail') . ': '
+            . userdate($message->time, get_string('strftimedatetime', 'langconfig')) . '<br>'
+            . get_string('subject', 'local_mail') . ': '
+            . format_text($message->subject, FORMAT_PLAIN, ['filter' => false])
+            . '</p>'
+            . format_text($originalcontent, $message->format, ['filter' => false]);
+        $data->format = FORMAT_HTML;
 
         return $data;
     }
@@ -174,7 +200,7 @@ class message_data {
      */
     public static function reply(message $message, user $sender, bool $all): self {
         assert(!$message->draft);
-        assert(isset($message->users[$sender->id]));
+        assert($sender->id == $message->sender()->id || $message->has_recipient($sender));
 
         $data = self::new($message->course, $sender);
         $data->reference = $message;
@@ -187,24 +213,20 @@ class message_data {
         }
 
         // Recipients.
-        foreach (array_keys($message->users) as $id) {
-            if ($id == $sender->id || $message->roles[$id] == message::ROLE_BCC) {
-                // Ignore user who replies and BCC recipients.
-                continue;
+        if ($message->role($sender) == message::ROLE_FROM) {
+            // Reply to self.
+            $data->to = $message->recipients(message::ROLE_TO);
+            if ($all) {
+                $data->cc = $message->recipients(message::ROLE_CC);
             }
-            if ($message->roles[$sender->id] == message::ROLE_FROM) {
-                // Reply to self.
-                if ($message->roles[$id] == message::ROLE_TO) {
-                    $data->to[] = $message->users[$id];
-                } else if ($all) {
-                    $data->cc[] = $message->users[$id];
-                }
-            } else {
-                // Reply to antoher user.
-                if ($message->roles[$id] == message::ROLE_FROM) {
-                    $data->to[] = $message->users[$id];
-                } else if ($all) {
-                    $data->cc[] = $message->users[$id];
+        } else {
+            // Reply to antoher user.
+            $data->to = [$message->sender()];
+            if ($all) {
+                foreach ($message->recipients(message::ROLE_TO, message::ROLE_CC) as $user) {
+                    if ($user->id != $sender->id) {
+                        $data->cc[] = $user;
+                    }
                 }
             }
         }

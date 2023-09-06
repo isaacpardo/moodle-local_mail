@@ -3,7 +3,8 @@
 <script lang="ts">
     import { tick } from 'svelte';
     import { blur } from '../actions/blur';
-    import type { SearchParams, Store, ViewParams } from '../lib/store';
+    import type { SearchParams, ViewParams } from '../lib/state';
+    import type { Store } from '../lib/store';
     import AdvancedSearch from './AdvancedSearch.svelte';
     import IncrementalSearch from './IncrementalSearch.svelte';
 
@@ -229,7 +230,7 @@
             enabled={entering && !advancedExpanded && !!content.trim()}
             {content}
             bind:loading
-            handleClick={handleIncrementalSearchClick}
+            onClick={handleIncrementalSearchClick}
         />
     {/if}
 </form>

@@ -23,8 +23,6 @@
 
 namespace local_mail;
 
-use context_system;
-
 class message {
 
     // Deleted stataus constants.
@@ -63,22 +61,22 @@ class message {
     public int $time;
 
     /** @var user[] Message users, indexed by user ID. */
-    public array $users = [];
+    private array $users = [];
 
     /** @var int[] Roles, indexed by user ID. */
-    public array $roles = [];
+    private array $roles = [];
 
     /** @var bool[] Unread status, indexed by user ID. */
-    public array $unread = [];
+    private array $unread = [];
 
     /** @var bool[] Starred status, indexed by user ID. */
-    public array $starred = [];
+    private array $starred = [];
 
     /** @var int[] Deleted status, indexed by user ID. */
-    public array $deleted = [];
+    private array $deleted = [];
 
     /** @var label[][] Labels, indexed by user ID and label ID. */
-    public array $labels = [];
+    private array $labels = [];
 
     /**
      * Constructs a message instance from a database record.
@@ -165,6 +163,43 @@ class message {
     }
 
     /**
+     * Deletes all messages from a course.
+     *
+     * @param \context_course $context Context of the course.
+     */
+    public static function delete_course(\context_course $context): void {
+        global $DB;
+
+        $transaction = $DB->start_delegated_transaction();
+
+        $DB->delete_records('local_mail_message_labels', ['courseid' => $context->instanceid]);
+
+        $DB->delete_records('local_mail_message_users', ['courseid' => $context->instanceid]);
+
+        $select = 'messageid IN (SELECT id FROM {local_mail_messages} WHERE courseid = :courseid)';
+        $DB->delete_records_select('local_mail_message_refs', $select, ['courseid' => $context->instanceid]);
+
+        $DB->delete_records('local_mail_messages', ['courseid' => $context->instanceid]);
+
+        $transaction->allow_commit();
+
+        $fs = get_file_storage();
+        $fs->delete_area_files($context->id, 'local_mail');
+    }
+
+    /**
+     * Returns the deleted status of the message.
+     *
+     * @param user $user User.
+     * @return int
+     */
+    public function deleted(user $user): int {
+        assert(isset($this->users[$user->id]));
+
+        return $this->deleted[$user->id];
+    }
+
+    /**
      * Empties the trash of a user.
      *
      * @param user $user User.
@@ -191,11 +226,12 @@ class message {
             . ' AND deleted = :deleted';
         $DB->execute($sql, $params);
 
-        $sql = 'UPDATE {local_mail_message_labels} ml'
-            . ' JOIN {local_mail_labels} l ON l.id = ml.labelid'
-            . ' SET ml.deleted = :deletedforever'
-            . ' WHERE l.userid = :userid AND ml.courseid ' . $sqlcourseid
-            . ' AND ml.deleted = :deleted';
+        $labelsql = 'SELECT l.id FROM {local_mail_labels} l WHERE l.userid = :userid';
+        $sql = 'UPDATE {local_mail_message_labels}'
+            . ' SET deleted = :deletedforever'
+            . ' WHERE courseid ' . $sqlcourseid
+            . ' AND deleted = :deleted'
+            . ' AND labelid IN (' . $labelsql . ')';
         $DB->execute($sql, $params);
 
         $transaction->allow_commit();
@@ -224,8 +260,6 @@ class message {
         if (!$ids) {
             return [];
         }
-
-        $ids = array_unique($ids);
 
         // Fetch records.
         list($sqlid, $params) = $DB->get_in_or_equal($ids);
@@ -262,11 +296,6 @@ class message {
             }
         }
 
-        // Sort users.
-        foreach (array_keys($users) as $messageid) {
-            $users[$messageid] = array_intersect_key($allusers, $users[$messageid]);
-        }
-
         // Fetch labels.
         $messagelabelrecords = $DB->get_records_select('local_mail_message_labels', "messageid $sqlid", $params);
         $labelids = array_column($messagelabelrecords, 'labelid');
@@ -291,6 +320,9 @@ class message {
                     $message->labels[$user->id] = $labels[$id][$user->id] ?? [];
                 }
                 $messages[$id] = $message;
+
+                // Sort roles so sender method has constant time complexity.
+                asort($message->roles);
             }
         }
 
@@ -320,6 +352,18 @@ class message {
     }
 
     /**
+     * Returns whether the given label is set for the message.
+     *
+     * @param label $label Label.
+     * @return bool
+     */
+    public function has_label(label $label): bool {
+        assert(isset($this->users[$label->user->id]));
+
+        return isset($this->labels[$label->user->id][$label->id]);
+    }
+
+    /**
      * Returns whether the given user is a recipient of a message.
      *
      * @param user $user User.
@@ -328,6 +372,22 @@ class message {
     public function has_recipient(user $user): bool {
         $recipientroles = [self::ROLE_TO, self::ROLE_CC, self::ROLE_BCC];
         return isset($this->roles[$user->id]) && in_array($this->roles[$user->id], $recipientroles);
+    }
+
+    /**
+     * Returns the labels of the message.
+     *
+     * @param user $user User.
+     * @return label[] Labels sorted by name.
+     */
+    public function labels(user $user): array {
+        assert(isset($this->users[$user->id]));
+
+        $labels = $this->labels[$user->id];
+
+        \core_collator::asort_objects_by_property($labels, 'name', \core_collator::SORT_NATURAL);
+
+        return array_values($labels);
     }
 
     /**
@@ -347,20 +407,35 @@ class message {
      * Returns the recipients of the message.
      *
      * @param int $roles Roles to include or all if empty.
-     * @return user[]
+     * @return user[] Sorted users.
      */
     public function recipients(int ...$roles): array {
         foreach ($roles as $role) {
             assert(in_array($role, [self::ROLE_TO, self::ROLE_CC, self::ROLE_BCC]));
         }
-        $result = [];
+        $recipients = [];
         foreach ($this->users as $user) {
             $role = $this->roles[$user->id];
             if ($role != self::ROLE_FROM && (!$roles || in_array($role, $roles))) {
-                $result[] = $user;
+                $recipients[] = $user;
             }
         }
-        return $result;
+
+        \core_collator::asort_objects_by_method($recipients, 'sortorder');
+
+        return array_values($recipients);
+    }
+
+    /**
+     * Returns the role of a user.
+     *
+     * @param user $user User.
+     * @return int message::ROLE_FROM, message::ROLE_TO, message::ROLE_CC or message::ROLE_BCC
+     */
+    public function role(user $user): int {
+        assert(isset($this->users[$user->id]));
+
+        return $this->roles[$user->id];
     }
 
     /**
@@ -568,6 +643,30 @@ class message {
     }
 
     /**
+     * Returns the starred status of the message.
+     *
+     * @param user $user User.
+     * @return bool
+     */
+    public function starred(user $user): bool {
+        assert(isset($this->users[$user->id]));
+
+        return $this->starred[$user->id];
+    }
+
+    /**
+     * Returns the unread status of the message.
+     *
+     * @param user $user User.
+     * @return bool
+     */
+    public function unread(user $user): bool {
+        assert(isset($this->users[$user->id]));
+
+        return $this->unread[$user->id];
+    }
+
+    /**
      * Updates the message.
      *
      * @param message_data $data Message data.
@@ -650,17 +749,17 @@ class message {
         $DB->execute($sql, $params);
 
         // Added and modified recipients.
-        $isrecipient = [];
+        $ignored = [$this->sender()->id => true];
         foreach (['to', 'cc', 'bcc'] as $rolename) {
             $role = $rolename == 'to' ? self::ROLE_TO : ($rolename == 'cc' ? self::ROLE_CC : self::ROLE_BCC);
 
             foreach ($data->$rolename as $user) {
-                if (!empty($isrecipient[$user->id])) {
+                if (!empty($ignored[$user->id])) {
                     // Ignore duplicated user.
                     continue;
                 }
 
-                $isrecipient[$user->id] = true;
+                $ignored[$user->id] = true;
 
                 if (!isset($this->users[$user->id])) {
                     $this->users[$user->id] = $user;
@@ -699,7 +798,7 @@ class message {
 
         // Removed recipients.
         foreach ($this->users as $user) {
-            if ($this->roles[$user->id] != self::ROLE_FROM && empty($isrecipient[$user->id])) {
+            if ($this->roles[$user->id] != self::ROLE_FROM && empty($ignored[$user->id])) {
                 unset($this->users[$user->id]);
                 unset($this->roles[$user->id]);
                 unset($this->unread[$user->id]);

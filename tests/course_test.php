@@ -37,70 +37,6 @@ class course_test extends testcase {
         self::assertEquals(\context_course::instance($record2->id), $course2->context());
     }
 
-    public function test_delete_messages() {
-        $fs = get_file_storage();
-        $generator = self::getDataGenerator();
-        $course1 = $generator->create_course();
-        $course2 = $generator->create_course();
-        $context1 = \context_course::instance($course1->id);
-        $context2 = \context_course::instance($course2->id);
-        $user1 = $generator->create_user();
-        $user2 = $generator->create_user();
-
-        list($labelid1, $labelid2) = self::insert_records(
-            'labels',
-            ['userid',   'name',    'color'],
-            [$user1->id, 'Label 1', 'red'],
-            [$user2->id, 'Label 2', 'blue'],
-        );
-        list($messageid1, $messageid2, $messageid3, $messageid4) = self::insert_records(
-            'messages',
-            ['courseid',   'subject',   'content',  'format', 'attachments', 'draft', 'time'],
-            [$course1->id, 'Subject 1', 'Content 1', 0,        0,             0,       0],
-            [$course1->id, 'Subject 2', 'Content 2', 0,        0,             0,       0],
-            [$course2->id, 'Subject 3', 'Content 3', 0,        0,             0,       0],
-            [$course2->id, 'Subject 4', 'Content 4', 0,        0,             0,       0],
-        );
-        self::insert_records(
-            'message_refs',
-            ['messageid', 'reference'],
-            [$messageid1, $messageid2],
-            [$messageid3, $messageid4],
-        );
-        $this->insert_records(
-            'message_users',
-            ['messageid', 'courseid',   'draft', 'time', 'userid',   'role', 'unread', 'starred',  'deleted'],
-            [$messageid1,  $course1->id, 0,       0,      $user1->id, 0,      0,        0,          0],
-            [$messageid2,  $course1->id, 0,       0,      $user2->id, 0,      0,        0,          0],
-            [$messageid3,  $course2->id, 0,       0,      $user1->id, 0,      0,        0,          0],
-            [$messageid4,  $course2->id, 0,       0,      $user2->id, 0,      0,        0,          0],
-        );
-        $this->insert_records(
-            'message_labels',
-            ['messageid', 'courseid',   'draft', 'time', 'labelid', 'role', 'unread', 'starred', 'deleted'],
-            [$messageid1,  $course1->id, 0,       0,      $labelid1, 0,      0,        0,         0],
-            [$messageid2,  $course1->id, 0,       0,      $labelid2, 0,      0,        0,         0],
-            [$messageid3,  $course2->id, 0,       0,      $labelid1, 0,      0,        0,         0],
-            [$messageid4,  $course2->id, 0,       0,      $labelid2, 0,      0,        0,         0],
-        );
-
-        self::create_attachment($course1->id, $messageid1, 'file1.txt', 'test');
-        self::create_attachment($course2->id, $messageid3, 'file2.txt', 'test');
-
-        course::delete_messages($course1->id);
-
-        self::assert_record_count(0, 'messages', ['courseid' => $course1->id]);
-        self::assert_record_count(2, 'messages', ['courseid' => $course2->id]);
-        self::assert_record_count(0, 'message_refs', ['messageid' => $messageid1]);
-        self::assert_record_count(1, 'message_refs', ['messageid' => $messageid3]);
-        self::assert_record_count(0, 'message_users', ['courseid' => $course1->id]);
-        self::assert_record_count(2, 'message_users', ['courseid' => $course2->id]);
-        self::assert_record_count(0, 'message_labels', ['courseid' => $course1->id]);
-        self::assert_record_count(2, 'message_labels', ['courseid' => $course2->id]);
-        self::assertEmpty($fs->get_area_files($context1->id, 'local_mail', 'message'));
-        self::assertNotEmpty($fs->get_area_files($context2->id, 'local_mail', 'message'));
-    }
-
     public function test_fetch() {
         $generator = self::getDataGenerator();
         $record = $generator->create_course(['groupmode' => SEPARATEGROUPS]);
@@ -180,9 +116,11 @@ class course_test extends testcase {
         $generator->enrol_user($user2->id, $course1->id, 'editingteacher');
         $generator->enrol_user($user2->id, $course2->id, 'editingteacher');
         $generator->enrol_user($user2->id, $course3->id, 'editingteacher');
+        $generator->create_group_member(['userid' => $user1->id, 'groupid' => $group1->id]);
+        $generator->create_group_member(['userid' => $user2->id, 'groupid' => $group1->id]);
         $generator->create_group_member(['userid' => $user1->id, 'groupid' => $group2->id]);
         $generator->create_group_member(['userid' => $user1->id, 'groupid' => $group4->id]);
-        $generator->create_group_member(['userid' => $user2->id, 'groupid' => $group4->id]);
+        $generator->create_group_member(['userid' => $user2->id, 'groupid' => $group5->id]);
 
         // Student in course with no groups.
         self::assertEquals([], $course1->get_viewable_groups($user1));
@@ -202,8 +140,8 @@ class course_test extends testcase {
         $expected = [$group4->id => $group4->name];
         self::assertEquals($expected, $course3->get_viewable_groups($user1));
 
-        // Teacher in course with separate groups.
-        $expected = [$group4->id => $group4->name, $group5->id => $group5->name];
+        // Teacher in course with separate groups, ignoring access all groups capability.
+        $expected = [$group5->id => $group5->name];
         self::assertEquals($expected, $course3->get_viewable_groups($user2));
     }
 
@@ -223,5 +161,14 @@ class course_test extends testcase {
         }
 
         self::assertEquals($expected, $course->get_viewable_roles($user));
+    }
+
+    public function test_url() {
+        global $CFG;
+
+        $generator = self::getDataGenerator();
+        $course = new course($generator->create_course());
+
+        self::assertEquals("$CFG->wwwroot/course/view.php?id={$course->id}", $course->url());
     }
 }

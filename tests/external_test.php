@@ -32,7 +32,11 @@ class external_test extends testcase {
     public function test_get_settings() {
         $generator = $this->getDataGenerator();
         $user = $generator->create_user();
+        set_config('enablebackup', '0', 'local_mail');
         set_config('maxrecipients', '20', 'local_mail');
+        set_config('usersearchlimit', '50', 'local_mail');
+        set_config('maxfiles', '5', 'local_mail');
+        set_config('maxbytes', '45000', 'local_mail');
         set_config('globaltrays', 'drafts,trash', 'local_mail');
         set_config('coursetrays', 'unread', 'local_mail');
         set_config('coursetraysname', 'shortname', 'local_mail');
@@ -41,14 +45,19 @@ class external_test extends testcase {
         set_config('filterbycourse', 'hidden', 'local_mail');
         set_config('incrementalsearch', '1', 'local_mail');
         set_config('incrementalsearchlimit', '2000', 'local_mail');
+        set_config('message_provider_local_mail_mail_enabled', 'popup,email', 'message');
+        set_config('email_provider_local_mail_mail_locked', '1', 'message');
         $this->setUser($user);
 
         $result = external::get_settings();
 
-        \external_api::validate_parameters(external::get_settings_returns(), $result);
-
+        external::validate_parameters(external::get_settings_returns(), $result);
         $expected = [
+            'enablebackup' => false,
             'maxrecipients' => 20,
+            'usersearchlimit' => 50,
+            'maxfiles' => 5,
+            'maxbytes' => 45000,
             'globaltrays' => ['drafts', 'trash'],
             'coursetrays' => 'unread',
             'coursetraysname' => 'shortname',
@@ -57,12 +66,31 @@ class external_test extends testcase {
             'filterbycourse' => 'hidden',
             'incrementalsearch' => true,
             'incrementalsearchlimit' => 2000,
+            'messageprocessors' => [
+                [
+                    'name' => 'popup',
+                    'displayname' => get_string('pluginname', 'message_popup'),
+                    'locked' => false,
+                    'enabled' => true,
+                ],
+                [
+                    'name' => 'email',
+                    'displayname' => get_string('pluginname', 'message_email'),
+                    'locked' => true,
+                    'enabled' => true,
+                ],
+            ],
         ];
         $this->assertEquals($expected, $result);
 
         // Default settings.
 
+        set_config('maxbytes', 123000);
+        unset_config('enablebackup', 'local_mail');
         unset_config('maxrecipients', 'local_mail');
+        unset_config('usersearchlimit', 'local_mail');
+        unset_config('maxfiles', 'local_mail');
+        unset_config('maxbytes', 'local_mail');
         unset_config('globaltrays', 'local_mail');
         unset_config('coursetrays', 'local_mail');
         unset_config('coursetraysname', 'local_mail');
@@ -74,48 +102,98 @@ class external_test extends testcase {
 
         $result = external::get_settings();
 
-        \external_api::validate_parameters(external::get_settings_returns(), $result);
+        external::validate_parameters(external::get_settings_returns(), $result);
+        self::assertEquals(true, $result['enablebackup']);
+        self::assertEquals(100, $result['maxrecipients']);
+        self::assertEquals(100, $result['usersearchlimit']);
+        self::assertEquals(20, $result['maxfiles']);
+        self::assertEquals(123000, $result['maxbytes']);
+        self::assertEquals(['starred', 'sent', 'drafts', 'trash'], $result['globaltrays']);
+        self::assertEquals('all', $result['coursetrays']);
+        self::assertEquals('fullname', $result['coursetraysname']);
+        self::assertEquals('fullname', $result['coursebadges']);
+        self::assertEquals(20, $result['coursebadgeslength']);
+        self::assertEquals('fullname', $result['filterbycourse']);
+        self::assertEquals(false, $result['incrementalsearch']);
+        self::assertEquals(1000, $result['incrementalsearchlimit']);
 
-        $expected = [
-            'maxrecipients' => 100,
-            'globaltrays' => ['starred', 'sent', 'drafts', 'trash'],
-            'coursetrays' => 'all',
-            'coursetraysname' => 'fullname',
-            'coursebadges' => 'fullname',
-            'coursebadgeslength' => 20,
-            'filterbycourse' => 'fullname',
-            'incrementalsearch' => false,
-            'incrementalsearchlimit' => 1000,
-        ];
-        $this->assertEquals($expected, $result);
+        // Empty global trays.
+
+        set_config('globaltrays', '', 'local_mail');
+
+        $result = external::get_settings();
+
+        external::validate_parameters(external::get_settings_returns(), $result);
+        $this->assertEquals([], $result['globaltrays']);
+
+        // Plugin not installed.
+
+        unset_config('version', 'local_mail');
+        try {
+            external::get_settings();
+            $this->fail();
+        } catch (exception $e) {
+            $this->assertEquals('pluginnotinstalled', $e->errorcode);
+        }
     }
 
     public function test_get_strings() {
+        global $CFG, $SESSION;
+
         $generator = $this->getDataGenerator();
         $user = $generator->create_user();
         $this->setUser($user);
 
+        make_writable_directory("$CFG->langlocalroot/en_local");
+        $content = "<?php
+            defined('MOODLE_INTERNAL') || die();
+            \$string['forward'] = 'Share';
+        ";
+        file_put_contents("$CFG->langlocalroot/en_local/local_mail.php", $content);
+
+        make_writable_directory("$CFG->langlocalroot/ca_local");
+        $content = "<?php
+            defined('MOODLE_INTERNAL') || die();
+            \$string['forward'] = 'Comparteix';
+        ";
+        file_put_contents("$CFG->langlocalroot/ca_local/local_mail.php", $content);
+
+        // English.
+
         $result = external::get_strings();
 
-        \external_api::validate_parameters(external::get_strings_returns(), $result);
-
+        external::validate_parameters(external::get_strings_returns(), $result);
         $this->assertEquals(external::get_strings_raw(), $result);
+        $this->assertEquals('Share', $result['forward']);
+
+        // Catalan.
+
+        $SESSION->lang = 'ca';
+
+        $result = external::get_strings();
+
+        external::validate_parameters(external::get_strings_returns(), $result);
+        $this->assertEquals(external::get_strings_raw(), $result);
+        $this->assertEquals('Comparteix', $result['forward']);
     }
 
     public function test_get_preferences() {
         $generator = $this->getDataGenerator();
         $user = $generator->create_user();
         $this->setUser($user);
+        set_config('message_provider_local_mail_mail_enabled', 'email', 'message');
         set_user_preference('local_mail_mailsperpage', 20);
         set_user_preference('local_mail_markasread', 1);
+        set_user_preference('message_provider_local_mail_mail_enabled', 'popup,unknown');
 
         $result = external::get_preferences();
 
-        \external_api::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferencs_returns(), $result);
 
         $expected = [
             'perpage' => 20,
             'markasread' => true,
+            'notifications' => ['popup'],
         ];
         $this->assertEquals($expected, $result);
 
@@ -123,14 +201,16 @@ class external_test extends testcase {
 
         unset_user_preference('local_mail_mailsperpage');
         unset_user_preference('local_mail_markasread');
+        unset_user_preference('message_provider_local_mail_mail_enabled');
 
         $result = external::get_preferences();
 
-        \external_api::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferencs_returns(), $result);
 
         $expected = [
             'perpage' => 10,
             'markasread' => false,
+            'notifications' => ['email'],
         ];
         $this->assertEquals($expected, $result);
 
@@ -140,23 +220,15 @@ class external_test extends testcase {
 
         $result = external::get_preferences();
 
-        \external_api::validate_parameters(external::get_preferencs_returns(), $result);
-        $expected = [
-            'perpage' => 5,
-            'markasread' => false,
-        ];
-        $this->assertEquals($expected, $result);
+        external::validate_parameters(external::get_preferencs_returns(), $result);
+        $this->assertEquals(5, $result['perpage']);
 
         set_user_preference('local_mail_mailsperpage', 101);
 
         $result = external::get_preferences();
 
-        \external_api::validate_parameters(external::get_preferencs_returns(), $result);
-        $expected = [
-            'perpage' => 100,
-            'markasread' => false,
-        ];
-        $this->assertEquals($expected, $result);
+        external::validate_parameters(external::get_preferencs_returns(), $result);
+        $this->assertEquals(100, $result['perpage']);
     }
 
     public function test_set_preferences() {
@@ -166,19 +238,26 @@ class external_test extends testcase {
 
         set_user_preference('local_mail_mailsperpage', 10);
         set_user_preference('local_mail_markasread', 0);
+        set_user_preference('message_provider_local_mail_mail_enabled', 'popup,unknown');
 
-        $result = external::set_preferences(['perpage' => '20', 'markasread' => true]);
+        $result = external::set_preferences([
+            'perpage' => '20',
+            'markasread' => true,
+            'notifications' => ['email']
+        ]);
 
+        $this->assertNull(external::set_preferences_returns());
         $this->assertNull($result);
         $this->assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
         $this->assertEquals('1', get_user_preferences('local_mail_markasread'));
+        $this->assertEquals('email', get_user_preferences('message_provider_local_mail_mail_enabled'));
 
         // Optional preferences.
 
-        $result = external::set_preferences(['perpage' => '50']);
+        $result = external::set_preferences([]);
 
         $this->assertNull($result);
-        $this->assertEquals('50', get_user_preferences('local_mail_mailsperpage'));
+        $this->assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
         $this->assertEquals('1', get_user_preferences('local_mail_markasread'));
 
         // Invalid perpage.
@@ -196,6 +275,15 @@ class external_test extends testcase {
         } catch (\invalid_parameter_exception $e) {
             $this->assertEquals('"perpage" must be between 5 and 100', $e->debuginfo);
         }
+
+        // Invalid processor name.
+
+        try {
+            $result = external::set_preferences(['notifications' => ['invalud']]);
+            $this->fail();
+        } catch (\invalid_parameter_exception $e) {
+            $this->assertEquals('"notifications" must contain message processor names', $e->debuginfo);
+        }
     }
 
     public function test_get_courses() {
@@ -205,7 +293,7 @@ class external_test extends testcase {
         foreach ($users as $user) {
             $this->setUser($user->id);
             $expected = [];
-            foreach ($user->get_courses() as $course) {
+            foreach (course::fetch_by_user($user) as $course) {
                 $search = new message_search($user);
                 $search->course = $course;
                 $search->roles = [message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC];
@@ -215,11 +303,12 @@ class external_test extends testcase {
                     'shortname' => $course->shortname,
                     'fullname' => $course->fullname,
                     'visible' => $course->visible,
+                    'groupmode' => $course->groupmode,
                     'unread' => $search->count(),
                 ];
             }
             $result = external::get_courses();
-            \external_api::validate_parameters(external::get_courses_returns(), $result);
+            external::validate_parameters(external::get_courses_returns(), $result);
             $this->assertEquals($expected, $result);
         }
 
@@ -251,7 +340,7 @@ class external_test extends testcase {
                 ];
             }
             $result = external::get_labels();
-            \external_api::validate_parameters(external::get_labels_returns(), $result);
+            external::validate_parameters(external::get_labels_returns(), $result);
             $this->assertEquals($expected, $result);
         }
 
@@ -320,7 +409,7 @@ class external_test extends testcase {
             }
 
             $result = external::count_messages($query);
-            \external_api::validate_parameters(external::count_messages_returns(), $result);
+            external::validate_parameters(external::count_messages_returns(), $result);
             $this->assertEquals($search->count(), $result, $search);
         }
 
@@ -434,15 +523,15 @@ class external_test extends testcase {
                 $query['reverse'] = true;
             }
 
-            $expected = external::search_messages_response($search->user->id, $search->fetch());
+            $expected = external::search_messages_response($search->user, $search->fetch());
             $result = external::search_messages($query);
-            \external_api::validate_parameters(external::search_messages_returns(), $result);
+            external::validate_parameters(external::search_messages_returns(), $result);
             self::assertEquals($expected, $result, $search);
 
             // Offset and limit.
-            $expected = external::search_messages_response($search->user->id, $search->fetch(5, 10));
+            $expected = external::search_messages_response($search->user, $search->fetch(5, 10));
             $result = external::search_messages($query, 5, 10);
-            \external_api::validate_parameters(external::search_messages_returns(), $result);
+            external::validate_parameters(external::search_messages_returns(), $result);
             $this->assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
         }
 
@@ -490,27 +579,64 @@ class external_test extends testcase {
     }
 
     public function test_get_message() {
-        list($users, $messages) = message_search_test::generate_data();
+        $generator = $this->getDataGenerator();
+        $course = new course($generator->create_course());
+        $user1 = new user($generator->create_user());
+        $user2 = new user($generator->create_user());
+        $user3 = new user($generator->create_user());
+        $user4 = new user($generator->create_user());
+        $user5 = new user($generator->create_user());
+        $user6 = new user($generator->create_user());
+        $label1 = label::create($user1, 'Label 1');
+        $label2 = label::create($user1, 'Label 2');
+        $label3 = label::create($user2, 'Label 3');
+        $generator->enrol_user($user1->id, $course->id);
+        $generator->enrol_user($user2->id, $course->id);
+        $generator->enrol_user($user3->id, $course->id);
+        $generator->enrol_user($user4->id, $course->id);
+        $generator->enrol_user($user5->id, $course->id);
+        $time1 = time() - 24 * 3600;
+        $time2 = time() - 3600;
+        $data = message_data::new($course, $user1);
+        $data->to = [$user2];
+        $data->subject = 'Subject';
+        $data->content = 'Message content';
+        $data->format = FORMAT_PLAIN;
+        $data->time = $time1;
+        self::create_draft_file($data->draftitemid, 'file1.txt', 'File 1');
+        $message1 = message::create($data);
+        $message1->send($time1);
+        $data = message_data::reply($message1, $user2, false);
+        $data->to = [$user1, $user3];
+        $data->cc = [$user4];
+        $data->bcc = [$user5, $user6];
+        $data->content = 'Response content';
+        $data->format = FORMAT_PLAIN;
+        $data->time = $time2;
+        self::create_draft_file($data->draftitemid, 'file2.txt', 'File 2');
+        $message2 = message::create($data);
+        $message2->send($time2);
+        $message2->set_labels($user1, [$label1, $label2]);
+        $message2->set_labels($user2, [$label3]);
+        self::setUser($user1->id);
 
-        $user = $users[0];
-        $this->setUser($user->id);
+        $result = external::get_message($message2->id);
 
-        foreach ($messages as $message) {
-            if ($user->can_view_message($message)) {
-                $result = external::get_message($message->id);
-                \external_api::validate_parameters(external::get_message_returns(), $result);
-                $this->assertEquals(external::get_message_response($user, $message), $result);
-            } else {
-                try {
-                    external::get_message($message->id);
-                    self::fail();
-                } catch (exception $e) {
-                    self::assertEquals('errormessagenotfound', $e->errorcode);
-                }
-            }
+        external::validate_parameters(external::get_message_returns(), $result);
+        $this->assertEquals(external::get_message_response($user1, message::fetch($message2->id)), $result);
+
+        // User cannot view message.
+
+        self::setUser($user6->id);
+        try {
+            external::get_message($message2->id);
+            self::fail();
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
         }
 
         // Inexistent message.
+
         try {
             external::get_message('-1');
             self::fail();
@@ -538,12 +664,13 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_unread($message->id, '1');
+        self::assertNull(external::set_unread_returns());
         $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->unread[$user1->id]);
+        $this->assertTrue(message::fetch($message->id)->unread($user1));
 
         $result = external::set_unread($message->id, '0');
         $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread[$user1->id]);
+        $this->assertFalse(message::fetch($message->id)->unread($user1));
 
         // Message sent to the user.
 
@@ -551,15 +678,15 @@ class external_test extends testcase {
 
         $result = external::set_unread($message->id, '0');
         $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread[$user2->id]);
+        $this->assertFalse(message::fetch($message->id)->unread($user2));
 
         $result = external::set_unread($message->id, '1');
         $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->unread[$user2->id]);
+        $this->assertTrue(message::fetch($message->id)->unread($user2));
 
         $result = external::set_unread($message->id, '0');
         $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread[$user2->id]);
+        $this->assertFalse(message::fetch($message->id)->unread($user2));
 
         // Draft to the user (no permission).
 
@@ -603,12 +730,13 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_starred($message->id, '1');
+        $this->assertNull(external::set_starred_returns());
         $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred[$user1->id]);
+        $this->assertTrue(message::fetch($message->id)->starred($user1));
 
         $result = external::set_starred($message->id, '0');
         $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->starred[$user1->id]);
+        $this->assertFalse(message::fetch($message->id)->starred($user1));
 
         // Message sent to the user.
 
@@ -616,15 +744,15 @@ class external_test extends testcase {
 
         $result = external::set_starred($message->id, '1');
         $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred[$user2->id]);
+        $this->assertTrue(message::fetch($message->id)->starred($user2));
 
         $result = external::set_starred($message->id, '0');
         $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->starred[$user2->id]);
+        $this->assertFalse(message::fetch($message->id)->starred($user2));
 
         $result = external::set_starred($message->id, '1');
         $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred[$user2->id]);
+        $this->assertTrue(message::fetch($message->id)->starred($user2));
 
         // Draft to the user (no permission).
 
@@ -668,16 +796,17 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_deleted($message->id, '1');
+        $this->assertNull(external::set_deleted_returns());
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted[$user1->id]);
+        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted($user1));
 
         $result = external::set_deleted($message->id, '0');
         $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted[$user1->id]);
+        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted($user1));
 
         $result = external::set_deleted($message->id, '2');
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted[$user1->id]);
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted($user1));
 
         try {
             external::set_deleted($message->id, '0');
@@ -692,15 +821,15 @@ class external_test extends testcase {
 
         $result = external::set_deleted($message->id, '1');
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted[$user2->id]);
+        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted($user2));
 
         $result = external::set_deleted($message->id, '0');
         $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted[$user2->id]);
+        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted($user2));
 
         $result = external::set_deleted($message->id, '2');
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted[$user2->id]);
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted($user2));
 
         try {
             external::set_deleted($message->id, '0');
@@ -730,11 +859,11 @@ class external_test extends testcase {
 
         $result = external::set_deleted($draft->id, '1');
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($draft->id)->deleted[$user1->id]);
+        $this->assertEquals(message::DELETED, message::fetch($draft->id)->deleted($user1));
 
         $result = external::set_deleted($draft->id, '0');
         $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($draft->id)->deleted[$user1->id]);
+        $this->assertEquals(message::NOT_DELETED, message::fetch($draft->id)->deleted($user1));
 
         $result = external::set_deleted($draft->id, '2');
         $this->assertNull($result);
@@ -807,13 +936,14 @@ class external_test extends testcase {
 
         $result = external::empty_trash();
 
+        $this->assertNull(external::empty_trash_returns());
         $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message1->id)->deleted[$user1->id]);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message2->id)->deleted[$user1->id]);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message3->id)->deleted[$user1->id]);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message4->id)->deleted[$user1->id]);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message5->id)->deleted[$user1->id]);
-        $this->assertEquals(message::DELETED, message::fetch($message6->id)->deleted[$user1->id]);
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message1->id)->deleted($user1));
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message2->id)->deleted($user1));
+        $this->assertEquals(message::NOT_DELETED, message::fetch($message3->id)->deleted($user1));
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message4->id)->deleted($user1));
+        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message5->id)->deleted($user1));
+        $this->assertEquals(message::DELETED, message::fetch($message6->id)->deleted($user1));
     }
 
     public function test_create_label() {
@@ -823,7 +953,7 @@ class external_test extends testcase {
 
         $result = external::create_label('Label 1', 'blue');
 
-        \external_api::validate_parameters(external::create_label_returns(), $result);
+        external::validate_parameters(external::create_label_returns(), $result);
         $label = label::fetch($result);
         $this->assertNotNull($label);
         $this->assertEquals($user->id, $label->user->id);
@@ -834,7 +964,7 @@ class external_test extends testcase {
 
         $result = external::create_label('Label 2');
 
-        \external_api::validate_parameters(external::create_label_returns(), $result);
+        external::validate_parameters(external::create_label_returns(), $result);
         $label = label::fetch($result);
         $this->assertNotNull($label);
         $this->assertEquals($user->id, $label->user->id);
@@ -891,6 +1021,7 @@ class external_test extends testcase {
 
         $result = external::update_label($label1->id, 'Updated 1', 'yellow');
 
+        $this->assertNull(external::update_label_returns());
         $this->assertNull($result);
         $label1 = label::fetch($label1->id);
         $this->assertEquals($user1->id, $label1->user->id);
@@ -963,6 +1094,7 @@ class external_test extends testcase {
 
         $result = external::delete_label($label1->id);
 
+        $this->assertNull(external::delete_label_returns());
         $this->assertNull($result);
         $label1 = label::fetch($label1->id);
         $this->assertNull($label1);
@@ -1008,14 +1140,15 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
+        $this->assertNull(external::set_labels_returns());
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label1->id, $label2->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label1, $label2], $message->labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label2->id, $label3->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label2, $label3], $message->labels($user1));
 
         // Message sent to the user.
 
@@ -1028,12 +1161,12 @@ class external_test extends testcase {
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label1->id, $label2->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label1, $label2], $message->labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label2->id, $label3->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label2, $label3], $message->labels($user1));
 
         // Draft from the user.
 
@@ -1044,12 +1177,12 @@ class external_test extends testcase {
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label1->id, $label2->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label1, $label2], $message->labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
         $this->assertNull($result);
         $message = message::fetch($message->id);
-        $this->assertEquals([$label2->id, $label3->id], array_keys($message->labels[$user1->id]));
+        $this->assertEquals([$label2, $label3], $message->labels($user1));
 
         // Draft to the user (no permission).
 
@@ -1115,7 +1248,7 @@ class external_test extends testcase {
             $expected[] = ['id' => $id, 'name' => $name];
         }
         $result = external::get_roles($course->id);
-        \external_api::validate_parameters(external::get_roles_returns(), $result);
+        external::validate_parameters(external::get_roles_returns(), $result);
         self::assertEquals($expected, $result);
 
         // User not enrolled in course.
@@ -1155,7 +1288,7 @@ class external_test extends testcase {
             ['id' => $group2->id, 'name' => $group2->name],
         ];
         $result = external::get_groups($course->id);
-        \external_api::validate_parameters(external::get_groups_returns(), $result);
+        external::validate_parameters(external::get_groups_returns(), $result);
         self::assertEquals($expected, $result);
 
         // User not enrolled in course.
@@ -1198,16 +1331,16 @@ class external_test extends testcase {
                 $query['include'] = $search->include;
             }
 
-            $expected = external::search_users_response($search->fetch());
+            $expected = external::search_users_response($search->course, $search->fetch());
             $result = external::search_users($query);
-            \external_api::validate_parameters(external::search_users_returns(), $result);
+            external::validate_parameters(external::search_users_returns(), $result);
             self::assertEquals($expected, $result, $search);
 
             // Offset and limit.
 
-            $expected = external::search_users_response($search->fetch(5, 10));
+            $expected = external::search_users_response($search->course, $search->fetch(5, 10));
             $result = external::search_users($query, 5, 10);
-            \external_api::validate_parameters(external::search_users_returns(), $result);
+            external::validate_parameters(external::search_users_returns(), $result);
             $this->assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
         }
 
@@ -1262,7 +1395,7 @@ class external_test extends testcase {
 
         $result = external::get_message_form($message->id);
 
-        \external_api::validate_parameters(external::get_message_form_returns(), $result);
+        external::validate_parameters(external::get_message_form_returns(), $result);
         $html = format_text($data->content, $data->format, ['filter' => false, 'para' => false]);
         self::assertGreaterThan(0, $result['draftitemid']);
         self::assert_draft_files(['file.txt' => 'File content'], $result['draftitemid']);
@@ -1310,7 +1443,7 @@ class external_test extends testcase {
 
         $result = external::create_message($course->id);
 
-        \external_api::validate_parameters(external::create_message_returns(), $result);
+        external::validate_parameters(external::create_message_returns(), $result);
         $draft = message::fetch($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
@@ -1318,7 +1451,7 @@ class external_test extends testcase {
         self::assertEquals('', $draft->subject);
         self::assertEquals('', $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals([$user->id => message::ROLE_FROM], $draft->roles);
+        self::assertEquals($user->id, $draft->sender()->id);
         self::assertGreaterThanOrEqual($now, $draft->time);
 
         // User not enrolled in course.
@@ -1361,6 +1494,8 @@ class external_test extends testcase {
         $data->content = 'Message content';
         $data->format = FORMAT_PLAIN;
         $data->time = $time;
+        self::create_draft_file($data->draftitemid, 'file1.txt', 'File 1');
+        self::create_draft_file($data->draftitemid, 'file2.txt', 'File 2');
         $message = message::create($data);
         $message->send($time);
         self::setUser($user2->id);
@@ -1369,7 +1504,7 @@ class external_test extends testcase {
 
         $result = external::reply_message($message->id, false);
 
-        \external_api::validate_parameters(external::reply_message_returns(), $result);
+        external::validate_parameters(external::reply_message_returns(), $result);
         $draft = message::fetch($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
@@ -1377,25 +1512,25 @@ class external_test extends testcase {
         self::assertEquals('RE: ' . $data->subject, $draft->subject);
         self::assertEquals('', $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals([
-            $user1->id => message::ROLE_TO,
-            $user2->id => message::ROLE_FROM,
-        ], $draft->roles);
+        self::assertEquals($user2, $draft->sender());
+        self::assertEqualsCanonicalizing([$user1], $draft->recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
         self::assertGreaterThanOrEqual($now, $draft->time);
+        self::assertEquals([$message->id => $message], $draft->fetch_references());
+        self::assert_attachments([], $draft);
 
         // Reply to all.
 
         $result = external::reply_message($message->id, true);
 
-        \external_api::validate_parameters(external::reply_message_returns(), $result);
+        external::validate_parameters(external::reply_message_returns(), $result);
         $draft = message::fetch($result);
         self::assertNotNull($draft);
-        self::assertEquals([
-            $user1->id => message::ROLE_TO,
-            $user2->id => message::ROLE_FROM,
-            $user3->id => message::ROLE_CC,
-            $user4->id => message::ROLE_CC,
-        ], $draft->roles);
+        self::assertEquals($user2, $draft->sender());
+        self::assertEqualsCanonicalizing([$user1], $draft->recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([$user3, $user4], $draft->recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
 
         // User cannot view message.
 
@@ -1453,22 +1588,40 @@ class external_test extends testcase {
         $data->content = 'Message content';
         $data->format = FORMAT_PLAIN;
         $data->time = $time;
+        self::create_draft_file($data->draftitemid, 'file1.txt', 'File 1');
+        self::create_draft_file($data->draftitemid, 'file2.txt', 'File 2');
         $message = message::create($data);
         $message->send($time);
         self::setUser($user2->id);
 
         $result = external::forward_message($message->id);
 
-        \external_api::validate_parameters(external::forward_message_returns(), $result);
+        external::validate_parameters(external::forward_message_returns(), $result);
         $draft = message::fetch($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
         self::assertEquals($data->course, $draft->course);
         self::assertEquals('FW: ' . $data->subject, $draft->subject);
-        self::assertEquals('', $draft->content);
+        $expected = '<p><br></p>'
+            . '<p>'
+            . '--------- ' . get_string('forwardedmessage', 'local_mail') . ' ---------<br>'
+            . get_string('from', 'local_mail') . ': '
+            . $message->sender()->fullname() . '<br>'
+            . get_string('date', 'local_mail') . ': '
+            . userdate($message->time, get_string('strftimedatetime', 'langconfig')) . '<br>'
+            . get_string('subject', 'local_mail') . ': '
+            . format_text($message->subject, FORMAT_PLAIN, ['filter' => false])
+            . '</p>'
+            . format_text($message->content, $message->format, ['filter' => false]);
+        self::assertEquals($expected, $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals([$user2->id => message::ROLE_FROM], $draft->roles);
+        self::assertEquals($user2, $draft->sender());
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
         self::assertGreaterThanOrEqual($now, $draft->time);
+        self::assertEquals([], $draft->fetch_references());
+        self::assert_attachments(['file1.txt' => 'File 1', 'file2.txt' => 'File 2'], $draft);
 
         // User cannot view message.
 
@@ -1503,7 +1656,7 @@ class external_test extends testcase {
         $message = message::create($data);
         $message->send($data->time);
         try {
-            external::forward_message($message->id, false);
+            external::forward_message($message->id);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
@@ -1544,21 +1697,19 @@ class external_test extends testcase {
         self::create_draft_file($data['draftitemid'], 'file2.txt', 'File 2');
 
         $result = external::update_message($message->id, $data);
-        self::assertNull($result);
 
+        $this->assertNull(external::update_message_returns());
+        self::assertNull($result);
         $message = message::fetch($message->id);
         self::assertEquals($course2, $message->course);
         self::assertEquals('Message subject', $message->subject);
         self::assertEquals('Message content', $message->content);
         self::assertEquals(FORMAT_HTML, $message->format);
         self::assertGreaterThanOrEqual($now, $message->time);
-        self::assertEquals([
-            $user1->id => message::ROLE_FROM,
-            $user2->id => message::ROLE_TO,
-            $user3->id => message::ROLE_TO,
-            $user4->id => message::ROLE_CC,
-            $user5->id => message::ROLE_BCC,
-        ], $message->roles);
+        self::assertEquals($user1, $message->sender());
+        self::assertEqualsCanonicalizing([$user2, $user3], $message->recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([$user4], $message->recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([$user5], $message->recipients(message::ROLE_BCC));
         self::assert_attachments([
             'file1.txt' => 'File 1',
             'file2.txt' => 'File 2'
@@ -1596,6 +1747,9 @@ class external_test extends testcase {
     }
 
     public function test_send_message() {
+        global $PAGE;
+        $renderer = $PAGE->get_renderer('local_mail');
+
         $generator = $this->getDataGenerator();
         $course = new course($generator->create_course());
         $user1 = new user($generator->create_user());
@@ -1609,6 +1763,7 @@ class external_test extends testcase {
         $generator->enrol_user($user3->id, $course->id);
         $generator->enrol_user($user4->id, $course->id);
         $generator->enrol_user($user5->id, $course->id);
+        set_user_preference('local_mail_markasread', 1, $user3->id);
         $time = make_timestamp(2021, 10, 11, 12, 0);
         $now = time();
         $data = message_data::new($course, $user1);
@@ -1622,13 +1777,39 @@ class external_test extends testcase {
         self::create_draft_file($data->draftitemid, 'file.txt', 'File content');
         $message = message::create($data);
         self::setUser($user1->id);
+        $sink = $this->redirectMessages();
 
         $result = external::send_message($message->id);
 
         self::assertNull($result);
+        $this->assertNull(external::send_message_returns());
+
         $message = message::fetch($message->id);
         self::assertFalse($message->draft);
         self::assertGreaterThanOrEqual($now, $message->time);
+        self::assertTrue($message->unread($user2));
+        self::assertFalse($message->unread($user3));
+        self::assertTrue($message->unread($user4));
+        self::assertTrue($message->unread($user5));
+
+        $notifications = $sink->get_messages();
+        $recipients = $message->recipients();
+        self::assertEquals(count($recipients), count($notifications));
+        foreach ($recipients as $i => $user) {
+            $expected = $renderer->notification($message, $user);
+            self::assertEquals($expected->notification, $notifications[$i]->notification);
+            self::assertEquals($expected->component, $notifications[$i]->component);
+            self::assertEquals($expected->name, $notifications[$i]->eventtype);
+            self::assertEquals($expected->userfrom, $notifications[$i]->useridfrom);
+            self::assertEquals($expected->userto, $notifications[$i]->useridto);
+            self::assertEquals($expected->subject, $notifications[$i]->subject);
+            self::assertEquals($expected->fullmessage, $notifications[$i]->fullmessage);
+            self::assertEquals($expected->fullmessageformat, $notifications[$i]->fullmessageformat);
+            self::assertEquals($expected->fullmessagehtml, $notifications[$i]->fullmessagehtml);
+            self::assertEquals($expected->smallmessage, $notifications[$i]->smallmessage);
+            self::assertEquals($expected->contexturl, $notifications[$i]->contexturl);
+            self::assertEquals($expected->contexturlname, $notifications[$i]->contexturlname);
+        }
 
         // User cannot edit message.
 

@@ -1,0 +1,83 @@
+<svelte:options immutable={true} />
+
+<script lang="ts">
+    import { fade } from 'svelte/transition';
+
+    import { truncate } from '../actions/truncate';
+    import { RecipientType, type Recipient, type User } from '../lib/state';
+    import type { Store } from '../lib/store';
+
+    export let store: Store;
+    export let recipients: ReadonlyMap<number, Recipient>;
+    export let onDelete: (user: User) => unknown;
+</script>
+
+{#each Object.values(RecipientType) as type}
+    {@const users = Array.from(recipients.values()).filter((user) => user.type == type)}
+    {#if users.length}
+        <div transition:fade class=" d-flex mb-2">
+            <div class="local-mail-message-form-recipients-type flex-shrink-0 py-2 mr-2">
+                {$store.strings[type]}:
+            </div>
+            <div class="d-flex flex-wrap" style="min-width: 0">
+                {#each users as user (user.id)}
+                    <div
+                        transition:fade
+                        use:truncate={user.fullname}
+                        class="local-mail-message-form-recipients-user d-flex flex-shrink align-items-center mr-2 mb-2"
+                        class:alert-danger={!user.isvalid}
+                    >
+                        <div class="d-flex m-1 mr-2">
+                            {#if user.isvalid}
+                                <img
+                                    aria-hidden="true"
+                                    alt={user.fullname}
+                                    src={user.pictureurl}
+                                    width="35"
+                                    height="35"
+                                    class="rounded-circle"
+                                />
+                            {:else}
+                                <div
+                                    class="m-0 d-flex justify-content-center align-items-center"
+                                    style="width: 35px; height: 35px"
+                                    title={$store.strings.cannotsendmailtouser}
+                                >
+                                    <i class="fa fa-exclamation-circle" />
+                                </div>
+                            {/if}
+                        </div>
+                        <div class="py-2" use:truncate={user.fullname}>
+                            {user.fullname}
+                        </div>
+                        <button
+                            type="button"
+                            class="btn align-self-middle p-2 align-bottom"
+                            title={$store.strings.delete}
+                            on:click={() => onDelete(user)}
+                        >
+                            <i class="fa fa-fw fa-times" />
+                        </button>
+                    </div>
+                {/each}
+            </div>
+        </div>
+    {/if}
+{/each}
+
+<style>
+    .local-mail-message-form-recipients-type {
+        width: 3rem;
+    }
+    .local-mail-message-form-recipients-user {
+        border-radius: 0.5rem;
+        max-width: 20rem;
+    }
+    .local-mail-message-form-recipients-user:not(.alert-danger) {
+        background-color: #eee;
+    }
+    .local-mail-message-form-recipients-user .btn {
+        position: relative;
+        z-index: 100;
+    }
+</style>

@@ -1,8 +1,7 @@
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import type { Label, Course, Settings, Strings } from '../lib/services';
-    import type { ViewParams, ViewTray } from '../lib/store';
+    import type { Course, Label, Settings, Strings, Tray, ViewParams } from '../lib/state';
     import MenuItem from './MenuItem.svelte';
 
     export let settings: Settings;
@@ -15,14 +14,14 @@
     export let onClick: ((params: ViewParams) => void) | undefined = undefined;
     export let flush = false;
 
-    $: trayVisible = (type: ViewTray): boolean => {
+    $: trayVisible = (type: Tray): boolean => {
         return settings.globaltrays.includes(type) || params?.tray == type;
     };
 
     $: courseVisible = (course: Course): boolean => {
         return (
             settings.coursetrays == 'all' ||
-            (settings.coursetrays == 'unread' && course.unread > 0) ||
+            (settings.coursetrays == 'unread' && (course.unread || 0) > 0) ||
             (params?.tray == 'course' && params?.courseid == course.id)
         );
     };

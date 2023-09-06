@@ -19,7 +19,6 @@ namespace local_mail;
 defined('MOODLE_INTERNAL') || die;
 
 require_once("$CFG->libdir/externallib.php");
-require_once("$CFG->dirroot/local/mail/locallib.php");
 
 class external extends \external_api {
 
@@ -35,72 +34,73 @@ class external extends \external_api {
     }
 
     public static function get_settings() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::get_settings_parameters(), func_get_args());
 
-        return self::get_settings_raw();
-    }
-
-    public static function get_settings_raw() {
-        $globaltrays = get_config('local_mail', 'globaltrays');
-        if ($globaltrays === false) {
-            $globaltrays = ['starred', 'sent', 'drafts', 'trash'];
-        } else if ($globaltrays == '') {
-            $globaltrays = [];
-        } else {
-            $globaltrays = explode(',', $globaltrays);
-        }
-
-        return [
-            'maxrecipients' => (int) get_config('local_mail', 'maxrecipients') ?: 100,
-            'globaltrays' => $globaltrays,
-            'coursetrays' => get_config('local_mail', 'coursetrays') ?: 'all',
-            'coursetraysname' => get_config('local_mail', 'coursetraysname') ?: 'fullname',
-            'coursebadges' => get_config('local_mail', 'coursebadges') ?: 'fullname',
-            'coursebadgeslength' => (int) get_config('local_mail', 'coursebadgeslength') ?: 20,
-            'filterbycourse' => get_config('local_mail', 'filterbycourse') ?: 'fullname',
-            'incrementalsearch' => (bool) get_config('local_mail', 'incrementalsearch'),
-            'incrementalsearchlimit' => (int) get_config('local_mail', 'incrementalsearchlimit') ?: 1000,
-        ];
+        return (array) settings::fetch();
     }
 
     public static function get_settings_returns() {
         return new \external_single_structure([
+            'enablebackup' => new \external_value(
+                PARAM_BOOL,
+                'Backup and restore enabled'
+            ),
             'maxrecipients' => new \external_value(
                 PARAM_INT,
-                'Maximum number of recipients'
+                'Maximum number of recipients allowed per message'
+            ),
+            'usersearchlimit' => new \external_value(
+                PARAM_INT,
+                'Maximum number of results displayed in the user search'
+            ),
+            'maxfiles' => new \external_value(
+                PARAM_INT,
+                'Maximum size of attachments allowed per message'
+            ),
+            'maxbytes' => new \external_value(
+                PARAM_INT,
+                'Maximum size of attachments allowed per message'
             ),
             'globaltrays' => new \external_multiple_structure(
-                new \external_value(PARAM_ALPHA, 'Type of tray: "starred", "sent", "drafts" or "trash"'),
-                'Global trays to display'
+                new \external_value(PARAM_ALPHA, 'Type of ray: "starred", "sent", "drafts" or "trash"'),
+                'Global trays displayed in menus'
             ),
             'coursetrays' => new \external_value(
                 PARAM_ALPHA,
-                'Course trays to display: "none", "unread", or "all"'
+                'Course trays displayed in menus: "none", "unread", or "all"'
             ),
             'coursetraysname' => new \external_value(
                 PARAM_ALPHA,
-                'Name of course trays to display: "shortname" or "fullname"'
+                'Type of course name displayed in menus: "shortname" or "fullname"'
             ),
             'coursebadges' => new \external_value(
                 PARAM_ALPHA,
-                'Type of course badges: "hidden", "shortname", or "fullname"'
+                'Type of course name displayed in messagess: "hidden", "shortname", or "fullname"'
             ),
             'coursebadgeslength' => new \external_value(
                 PARAM_INT,
-                'Trunate course badges to this length in characters'
+                'Course badges are truncated to this approximate length'
             ),
             'filterbycourse' => new \external_value(
                 PARAM_ALPHA,
-                'Type of filter by course: "hidden", "shortname", or "fullname"'
+                'Type of course name used in the filter by course: "hidden", "shortname" or "fullname"'
             ),
             'incrementalsearch' => new \external_value(
                 PARAM_BOOL,
-                'Enables displaying results while the user is typing in the search box',
+                'Incremental search enabled',
             ),
             'incrementalsearchlimit' => new \external_value(
                 PARAM_INT,
                 'Maximum number of recent messages included in incremental search',
             ),
+            'messageprocessors' => new \external_multiple_structure(
+                new \external_single_structure([
+                    'name' => new \external_value(PARAM_PLUGIN, 'Name of the message processor'),
+                    'displayname' => new \external_value(PARAM_TEXT, 'Display name of the message processor'),
+                    'enabled' => new \external_value(PARAM_BOOL, 'Message processor is enabled'),
+                    'locked' => new \external_value(PARAM_BOOL, 'Message processor is locked'),
+                ])
+            )
         ]);
     }
 
@@ -109,7 +109,7 @@ class external extends \external_api {
     }
 
     public static function get_strings() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::get_strings_parameters(), func_get_args());
 
         return self::get_strings_raw();
     }
@@ -136,7 +136,7 @@ class external extends \external_api {
 
             // Local customisations.
             if (file_exists("$CFG->langlocalroot/{$lang}_local/local_mail.php")) {
-                include("$CFG->langlocalroot/{$lang}_local/local_mail/file.php");
+                include("$CFG->langlocalroot/{$lang}_local/local_mail.php");
             }
 
             return $string;
@@ -158,22 +158,39 @@ class external extends \external_api {
     }
 
     public static function get_preferences() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::get_preferences_parameters(), func_get_args());
 
         return self::get_preferences_raw();
     }
 
     public static function get_preferences_raw() {
-        return [
+        $result = [
             'perpage' => max(5, min(100, (int) get_user_preferences('local_mail_mailsperpage', 10))),
             'markasread' => (bool) get_user_preferences('local_mail_markasread', 0),
+            'notifications' => [],
         ];
+
+        if (!get_config('message', 'local_mail_mail_disable')) {
+            $configenabled = get_config('message', 'message_provider_local_mail_mail_enabled');
+            $prefenabled = get_user_preferences('message_provider_local_mail_mail_enabled');
+            foreach (get_message_processors(true) as $processor) {
+                $enabled = explode(',', $prefenabled === null ? $configenabled : $prefenabled);
+                if (array_search($processor->name, $enabled) !== false) {
+                    $result['notifications'][] = $processor->name;
+                }
+            }
+        }
+
+        return $result;
     }
 
     public static function get_preferencs_returns() {
         return new \external_single_structure([
             'perpage' => new \external_value(PARAM_INT, 'Number of messages to display per page (5-100)'),
             'markasread' => new \external_value(PARAM_BOOL, 'Mark new messages as read if a notification is sent'),
+            'notifications' => new \external_multiple_structure(
+                new \external_value(PARAM_PLUGIN, 'Name of the message processor')
+            )
         ]);
     }
 
@@ -190,15 +207,17 @@ class external extends \external_api {
                     'Mark new messages as read if a notification is sent',
                     VALUE_OPTIONAL
                 ),
+                'notifications' => new \external_multiple_structure(
+                    new \external_value(PARAM_PLUGIN, 'Name of the message processor'),
+                    'Notifications',
+                    VALUE_OPTIONAL
+                )
             ]),
         ]);
     }
 
-    public static function set_preferences($preferences) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['preferences' => $preferences];
-        $params = self::validate_parameters(self::set_preferences_parameters(), $params);
+    public static function set_preferences() {
+        $params = self::validate_call(self::set_preferences_parameters(), func_get_args());
 
         if (isset($params['preferences']['perpage'])) {
             if ($params['preferences']['perpage'] < 5 || $params['preferences']['perpage'] > 100) {
@@ -206,19 +225,24 @@ class external extends \external_api {
             }
         }
 
-        self::set_preferences_raw($params['preferences']);
+        if (isset($params['preferences']['perpage'])) {
+            set_user_preference('local_mail_mailsperpage', $params['preferences']['perpage']);
+        }
+
+        if (isset($params['preferences']['markasread'])) {
+            set_user_preference('local_mail_markasread', $params['preferences']['markasread']);
+        }
+
+        if (isset($params['preferences']['notifications'])) {
+            $processornames = array_column(get_message_processors(true) , 'name');
+            if (array_diff($params['preferences']['notifications'],  $processornames)) {
+                throw new \invalid_parameter_exception('"notifications" must contain message processor names');
+            }
+            $enabled = implode(',', $params['preferences']['notifications']);
+            set_user_preference('message_provider_local_mail_mail_enabled', $enabled);
+        }
 
         return null;
-    }
-
-    public static function set_preferences_raw($preferences) {
-        if (isset($preferences['perpage'])) {
-            set_user_preference('local_mail_mailsperpage', $preferences['perpage']);
-        }
-
-        if (isset($preferences['markasread'])) {
-            set_user_preference('local_mail_markasread', $preferences['markasread']);
-        }
     }
 
     public static function set_preferences_returns() {
@@ -230,14 +254,14 @@ class external extends \external_api {
     }
 
     public static function get_courses() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::get_courses_parameters(), func_get_args());
 
         return self::get_courses_raw();
     }
 
     public static function get_courses_raw() {
         $user = user::current();
-        $courses = $user->get_courses();
+        $courses = course::fetch_by_user($user);
 
         if (!$courses) {
             return [];
@@ -255,6 +279,7 @@ class external extends \external_api {
                 'shortname' => $course->shortname,
                 'fullname' => $course->fullname,
                 'visible' => $course->visible,
+                'groupmode' => $course->groupmode,
                 'unread' => $unread[$course->id] ?? 0,
             ];
         }
@@ -270,6 +295,7 @@ class external extends \external_api {
                 'fullname' => new \external_value(PARAM_TEXT, 'Full name of the course'),
                 'unread' => new \external_value(PARAM_INT, 'Number of unread messages'),
                 'visible' => new \external_value(PARAM_BOOL, 'Course visibility'),
+                'groupmode' => new \external_value(PARAM_INT, 'Group mode: 0 (no), 1 (separate) or 2 (visible)'),
             ])
         );
     }
@@ -279,7 +305,7 @@ class external extends \external_api {
     }
 
     public static function get_labels() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::get_labels_parameters(), func_get_args());
 
         return self::get_labels_raw();
     }
@@ -288,7 +314,6 @@ class external extends \external_api {
         $result = [];
 
         $user = user::current();
-        $courses = $user->get_courses();
 
         $search = new message_search($user);
         $search->roles = [message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC];
@@ -410,7 +435,7 @@ class external extends \external_api {
         ]);
     }
 
-    private static function validate_query_parameter($query): message_search {
+    private static function validate_query_parameter(array $query): message_search {
         $user = user::current();
 
         $search = new message_search($user);
@@ -481,11 +506,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function count_messages($query) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['query' => $query];
-        $params = self::validate_parameters(self::count_messages_parameters(), $params);
+    public static function count_messages() {
+        $params = self::validate_call(self::count_messages_parameters(), func_get_args());
 
         $search = self::validate_query_parameter($params['query']);
 
@@ -514,36 +536,37 @@ class external extends \external_api {
         ]);
     }
 
-    public static function search_messages($query, $offset = 0, $limit = 0) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['query' => $query, 'offset' => $offset, 'limit' => $limit];
-        $params = self::validate_parameters(self::search_messages_parameters(), $params);
+    public static function search_messages() {
+        $params = self::validate_call(self::search_messages_parameters(), func_get_args());
 
         $search = self::validate_query_parameter($params['query']);
 
         $messages = $search->fetch($params['offset'], $params['limit']);
 
-        return self::search_messages_response($search->user->id, $messages);
+        return self::search_messages_response($search->user, $messages);
     }
 
-    public static function search_messages_response(int $userid, array $messages) {
+    public static function search_messages_response(user $user, array $messages) {
+        global $PAGE;
+        $renderer = $PAGE->get_renderer('local_mail');
+
         $result = [];
 
         foreach ($messages as $message) {
             $sender = $message->sender();
             $recipients = [];
-            foreach ($message->recipients(message::ROLE_TO, message::ROLE_CC) as $user) {
+            foreach ($message->recipients(message::ROLE_TO, message::ROLE_CC) as $recipient) {
                 $recipients[] = [
-                    'type' => self::ROLES[$message->roles[$user->id]],
-                    'id' => $user->id,
-                    'fullname' => $user->fullname(),
-                    'pictureurl' => $user->picture_url(),
-                    'profileurl' => $user->profile_url(),
+                    'type' => self::ROLES[$message->role($recipient)],
+                    'id' => $recipient->id,
+                    'fullname' => $recipient->fullname(),
+                    'pictureurl' => $recipient->picture_url(),
+                    'profileurl' => $recipient->profile_url($message->course),
+                    'sortorder' => $recipient->sortorder(),
                 ];
             }
             $labels = [];
-            foreach ($message->labels[$userid] as $label) {
+            foreach ($message->labels($user) as $label) {
                 $labels[] = [
                     'id' => $label->id,
                     'name' => $label->name,
@@ -556,21 +579,24 @@ class external extends \external_api {
                 'numattachments' => $message->attachments,
                 'draft' => $message->draft,
                 'time' => $message->time,
-                'shorttime' => self::format_time($message->time),
-                'fulltime' => self::format_time($message->time, true),
-                'unread' => $message->unread[$userid],
-                'starred' => $message->starred[$userid],
-                'deleted' => $message->deleted[$userid] != message::NOT_DELETED,
+                'shorttime' => $renderer->formatted_time($message->time),
+                'fulltime' => $renderer->formatted_time($message->time, true),
+                'unread' => $message->unread($user),
+                'starred' => $message->starred($user),
+                'deleted' => $message->deleted($user) != message::NOT_DELETED,
                 'course' => [
                     'id' => $message->course->id,
                     'shortname' => $message->course->shortname,
                     'fullname' => $message->course->fullname,
+                    'visible' => $message->course->visible,
+                    'groupmode' => $message->course->groupmode,
                 ],
                 'sender' => [
                     'id' => $sender->id,
                     'fullname' => $sender->fullname(),
                     'pictureurl' => $sender->picture_url(),
-                    'profileurl' => $sender->profile_url(),
+                    'profileurl' => $sender->profile_url($message->course),
+                    'sortorder' => $sender->sortorder(),
                 ],
                 'recipients' => $recipients,
                 'labels' => $labels,
@@ -597,12 +623,15 @@ class external extends \external_api {
                     'id' => new \external_value(PARAM_INT, 'Id of the course'),
                     'shortname' => new \external_value(PARAM_TEXT, 'Short name of the course'),
                     'fullname' => new \external_value(PARAM_TEXT, 'Full name of the course'),
+                    'visible' => new \external_value(PARAM_BOOL, 'Course visibility'),
+                    'groupmode' => new \external_value(PARAM_INT, 'Group mode: 0 (no), 1 (separate) or 2 (visible)'),
                 ], '', VALUE_OPTIONAL),
                 'sender' => new \external_single_structure([
                     'id' => new \external_value(PARAM_INT, 'Id of the user'),
                     'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                     'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                    'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
                 ]),
                 'recipients' => new \external_multiple_structure(
                     new \external_single_structure([
@@ -611,6 +640,7 @@ class external extends \external_api {
                         'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                        'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
                     ])
                 ),
                 'labels' => new \external_multiple_structure(
@@ -630,11 +660,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function get_message($messageid) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['messageid' => $messageid];
-        $params = self::validate_parameters(self::get_message_parameters(), $params);
+    public static function get_message() {
+        $params = self::validate_call(self::get_message_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -648,6 +675,9 @@ class external extends \external_api {
     }
 
     public static function get_message_response(user $user, message $message) {
+        global $PAGE;
+        $renderer = $PAGE->get_renderer('local_mail');
+
         $contextid = $message->course->context()->id;
 
         list($content, $format) = \external_format_text(
@@ -669,21 +699,24 @@ class external extends \external_api {
             'numattachments' => $message->attachments,
             'draft' => $message->draft,
             'time' => $message->time,
-            'shorttime' => self::format_time($message->time),
-            'fulltime' => self::format_time($message->time, true),
-            'unread' => $message->unread[$user->id],
-            'starred' => $message->starred[$user->id],
-            'deleted' => (bool) $message->deleted[$user->id],
+            'shorttime' => $renderer->formatted_time($message->time),
+            'fulltime' => $renderer->formatted_time($message->time, true),
+            'unread' => $message->unread($user),
+            'starred' => $message->starred($user),
+            'deleted' => (bool) $message->deleted($user),
             'course' => [
                 'id' => $message->course->id,
                 'shortname' => $message->course->shortname,
                 'fullname' => $message->course->fullname,
+                'visible' => $message->course->visible,
+                'groupmode' => $message->course->groupmode,
             ],
             'sender' => [
                 'id' => $sender->id,
                 'fullname' => $sender->fullname(),
                 'pictureurl' => $sender->picture_url(),
-                'profileurl' => $sender->profile_url(),
+                'profileurl' => $sender->profile_url($message->course),
+                'sortorder' => $sender->sortorder(),
             ],
             'recipients' => [],
             'attachments' => [],
@@ -699,17 +732,17 @@ class external extends \external_api {
                 'filename' => $file->get_filename(),
                 'filesize' => (int) $file->get_filesize(),
                 'mimetype' => $file->get_mimetype(),
-                'fileurl' => self::file_url($file),
-                'iconurl' => self::file_icon_url($file),
+                'fileurl' => $renderer->file_url($file),
+                'iconurl' => $renderer->file_icon_url($file),
             ];
         }
 
         $search = new user_search($user, $message->course);
-        $search->include = array_keys($message->users);
+        $search->include = array_column($message->recipients(), 'id');
         $validrecipients = $search->fetch();
 
         foreach ($message->recipients() as $recipient) {
-            $role = $message->roles[$recipient->id];
+            $role = $message->role($recipient);
             if ($role == message::ROLE_BCC && $user->id != $recipient->id && $user->id != $sender->id) {
                 continue;
             }
@@ -718,7 +751,8 @@ class external extends \external_api {
                 'id' => $recipient->id,
                 'fullname' => $recipient->fullname(),
                 'pictureurl' => $recipient->picture_url(),
-                'profileurl' => $recipient->profile_url(),
+                'profileurl' => $recipient->profile_url($message->course),
+                'sortorder' => $recipient->sortorder(),
                 'isvalid' => isset($validrecipients[$recipient->id]),
             ];
         }
@@ -742,8 +776,8 @@ class external extends \external_api {
                     'filename' => $file->get_filename(),
                     'filesize' => (int) $file->get_filesize(),
                     'mimetype' => $file->get_mimetype(),
-                    'fileurl' => self::file_url($file),
-                    'iconurl' => self::file_icon_url($file),
+                    'fileurl' => $renderer->file_url($file),
+                    'iconurl' => $renderer->file_icon_url($file),
                 ];
             }
 
@@ -755,19 +789,20 @@ class external extends \external_api {
                 'content' => $content,
                 'format' => $format,
                 'time' => $ref->time,
-                'shorttime' => self::format_time($ref->time),
-                'fulltime' => self::format_time($ref->time, true),
+                'shorttime' => $renderer->formatted_time($ref->time),
+                'fulltime' => $renderer->formatted_time($ref->time, true),
                 'sender' => [
                     'id' => $refsender->id,
                     'fullname' => $refsender->fullname(),
                     'pictureurl' => $refsender->picture_url(),
-                    'profileurl' => $refsender->profile_url(),
+                    'profileurl' => $refsender->profile_url($message->course),
+                    'sortorder' => $sender->sortorder(),
                 ],
                 'attachments' => $attachments,
             ];
         }
 
-        foreach ($message->labels[$user->id] as $label) {
+        foreach ($message->labels($user) as $label) {
             $result['labels'][] = [
                 'id' => $label->id,
                 'name' => $label->name,
@@ -797,12 +832,15 @@ class external extends \external_api {
                 'id' => new \external_value(PARAM_INT, 'Id of the course'),
                 'shortname' => new \external_value(PARAM_TEXT, 'Short name of the course'),
                 'fullname' => new \external_value(PARAM_TEXT, 'Full name of the course'),
+                'visible' => new \external_value(PARAM_BOOL, 'Course visibility'),
+                'groupmode' => new \external_value(PARAM_INT, 'Group mode: 0 (no), 1 (separate) or 2 (visible)'),
             ]),
             'sender' => new \external_single_structure([
                 'id' => new \external_value(PARAM_INT, 'Id of the user'),
                 'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
             ]),
             'recipients' => new \external_multiple_structure(
                 new \external_single_structure([
@@ -811,6 +849,7 @@ class external extends \external_api {
                     'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                     'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                    'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
                     'isvalid' => new \external_value(PARAM_BOOL, 'This user can receive messages.'),
                 ])
             ),
@@ -838,6 +877,7 @@ class external extends \external_api {
                         'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                        'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
                     ]),
                     'attachments' => new \external_multiple_structure(
                         new \external_single_structure([
@@ -869,11 +909,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function set_unread($messageid, $unread) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['messageid' => $messageid, 'unread' => $unread];
-        $params = self::validate_parameters(self::set_unread_parameters(), $params);
+    public static function set_unread() {
+        $params = self::validate_call(self::set_unread_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -898,11 +935,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function set_starred($messageid, $starred) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['messageid' => $messageid, 'starred' => $starred];
-        $params = self::validate_parameters(self::set_starred_parameters(), $params);
+    public static function set_starred() {
+        $params = self::validate_call(self::set_starred_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -930,11 +964,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function set_deleted($messageid, $deleted) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['messageid' => $messageid, 'deleted' => $deleted];
-        $params = self::validate_parameters(self::set_deleted_parameters(), $params);
+    public static function set_deleted() {
+        $params = self::validate_call(self::set_deleted_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -957,11 +988,11 @@ class external extends \external_api {
     }
 
     public static function empty_trash() {
-        self::validate_context(\context_system::instance());
+        self::validate_call(self::empty_trash_parameters(), func_get_args());
 
         $user = user::current();
 
-        message::empty_trash($user, $user->get_courses());
+        message::empty_trash($user, course::fetch_by_user($user));
 
         return null;
     }
@@ -978,11 +1009,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function create_label($name, $color = '') {
-        self::validate_context(\context_system::instance());
-
-        $params = ['name' => $name, 'color' => $color];
-        $params = self::validate_parameters(self::create_label_parameters(), $params);
+    public static function create_label() {
+        $params = self::validate_call(self::create_label_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -1019,11 +1047,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function update_label($labelid, $name, $color = '') {
-        self::validate_context(\context_system::instance());
-
-        $params = ['labelid' => $labelid, 'name' => $name, 'color' => $color];
-        $params = self::validate_parameters(self::update_label_parameters(), $params);
+    public static function update_label() {
+        $params = self::validate_call(self::update_label_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -1062,11 +1087,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function delete_label($labelid) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['labelid' => $labelid];
-        $params = self::validate_parameters(self::delete_label_parameters(), $params);
+    public static function delete_label() {
+        $params = self::validate_call(self::delete_label_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -1096,11 +1118,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function set_labels($messageid, $labelids) {
-        self::validate_context(\context_system::instance());
-
-        $params = ['messageid' => $messageid, 'labelids' => $labelids];
-        $params = self::validate_parameters(self::set_labels_parameters(), $params);
+    public static function set_labels() {
+        $params = self::validate_call(self::set_labels_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -1131,10 +1150,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function get_roles($courseid) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::get_groups_parameters(), ['courseid' => $courseid]);
+    public static function get_roles() {
+        $params = self::validate_call(self::get_roles_parameters(), func_get_args());
 
         $user = user::current();
         $course = course::fetch($params['courseid']);
@@ -1165,10 +1182,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function get_groups($courseid) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::get_groups_parameters(), ['courseid' => $courseid]);
+    public static function get_groups() {
+        $params = self::validate_call(self::get_groups_parameters(), func_get_args());
 
         $user = user::current();
         $course = course::fetch($params['courseid']);
@@ -1241,9 +1256,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function search_users($query, $offset = 0, $limit = 0) {
-        $params = ['query' => $query, 'offset' => $offset, 'limit' => $limit];
-        $params = self::validate_parameters(self::search_users_parameters(), $params);
+    public static function search_users() {
+        $params = self::validate_call(self::search_users_parameters(), func_get_args());
 
         $user = user::current();
         $course = course::fetch($params['query']['courseid']);
@@ -1269,14 +1283,12 @@ class external extends \external_api {
             $search->include = $params['query']['include'];
         }
 
-        self::validate_context(\context_system::instance());
-
         $users = $search->fetch($params['offset'], $params['limit']);
 
-        return self::search_users_response($users);
+        return self::search_users_response($course, $users);
     }
 
-    public static function search_users_response(array $users) {
+    public static function search_users_response(course $course, array $users) {
         $result = [];
 
         foreach ($users as $user) {
@@ -1284,7 +1296,8 @@ class external extends \external_api {
                 'id' => $user->id,
                 'fullname' => $user->fullname(),
                 'pictureurl' => $user->picture_url(),
-                'profileurl' => $user->profile_url(),
+                'profileurl' => $user->profile_url($course),
+                'sortorder' => $user->sortorder(),
             ];
         }
 
@@ -1298,6 +1311,7 @@ class external extends \external_api {
                 'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
+                'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
             ])
         );
     }
@@ -1308,15 +1322,13 @@ class external extends \external_api {
         ]);
     }
 
-    public static function get_message_form($messageid) {
+    public static function get_message_form() {
         global $CFG, $PAGE;
 
         require_once("$CFG->libdir/form/editor.php");
         require_once("$CFG->libdir/form/filemanager.php");
 
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::get_message_form_parameters(), ['messageid' => $messageid]);
+        $params = self::validate_call(self::get_message_form_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -1367,10 +1379,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function create_message($courseid) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::create_message_parameters(), ['courseid' => $courseid]);
+    public static function create_message() {
+        $params = self::validate_call(self::create_message_parameters(), func_get_args());
 
         $user = user::current();
         $course = course::fetch($params['courseid']);
@@ -1394,10 +1404,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function reply_message($messageid, $all) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::reply_message_parameters(), ['messageid' => $messageid, 'all' => $all]);
+    public static function reply_message() {
+        $params = self::validate_call(self::reply_message_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -1420,10 +1428,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function forward_message(int $messageid) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::forward_message_parameters(), ['messageid' => $messageid]);
+    public static function forward_message() {
+        $params = self::validate_call(self::forward_message_parameters(), func_get_args());
 
         $user = user::current();
         $message = message::fetch($params['messageid']);
@@ -1456,10 +1462,8 @@ class external extends \external_api {
         ]);
     }
 
-    public static function update_message($messageid, $data) {
-        self::validate_context(\context_system::instance());
-
-        $params = self::validate_parameters(self::update_message_parameters(), ['messageid' => $messageid, 'data' => $data]);
+    public static function update_message() {
+        $params = self::validate_call(self::update_message_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -1496,10 +1500,10 @@ class external extends \external_api {
         ]);
     }
 
-    public static function send_message($messageid) {
-        self::validate_context(\context_system::instance());
+    public static function send_message() {
+        global $PAGE;
 
-        $params = self::validate_parameters(self::send_message_parameters(), ['messageid' => $messageid]);
+        $params = self::validate_call(self::send_message_parameters(), func_get_args());
 
         $user = user::current();
 
@@ -1534,46 +1538,35 @@ class external extends \external_api {
         }
 
         $message->send(time());
+
+        $renderer = $PAGE->get_renderer('local_mail');
+        foreach ($message->recipients() as $recipient) {
+            $notificationid = message_send($renderer->notification($message, $recipient));
+            if ($notificationid && get_user_preferences('local_mail_markasread', false, $recipient->id)) {
+                $message->set_unread($recipient, false);
+            }
+        }
     }
 
     public static function send_message_returns() {
         return null;
     }
 
-    private static function file_icon_url(\stored_file $file) {
-        global $OUTPUT;
-        return $OUTPUT->image_url(file_file_icon($file, 24))->out(false);
-    }
-
-    private static function file_url(\stored_file $file) {
-        $fileurl = \moodle_url::make_pluginfile_url(
-            $file->get_contextid(),
-            $file->get_component(),
-            $file->get_filearea(),
-            $file->get_itemid(),
-            $file->get_filepath(),
-            $file->get_filename()
-        );
-        return $fileurl->out(false);
-    }
-
-    public static function format_time(int $timestamp, $forcefull = false): string {
-        $tz = \core_date::get_user_timezone();
-        $date = new \DateTime('now', new \DateTimeZone($tz));
-        $offset = ($date->getOffset() - dst_offset_on(time(), $tz)) / (3600.0);
-        $time = ($offset < 13) ? $timestamp + $offset : $timestamp;
-        $now = ($offset < 13) ? time() + $offset : time();
-        $daysago = floor($now / 86400) - floor($time / 86400);
-        $yearsago = (int) date('Y', $now) - (int) date('Y', $time);
-
-        if ($forcefull) {
-            return  userdate($time, get_string('strftimedatetime', 'langconfig'));
-        } else if ($daysago == 0) {
-            return userdate($time, get_string('strftimetime'));
-        } else if ($yearsago == 0) {
-            return userdate($time, get_string('strftimedateshortmonthabbr', 'langconfig'));
-        } else {
-            return userdate($time, get_string('strftimedatefullshort', 'langconfig'));
+    /**
+     * Validates user and parameters.
+     *
+     * @param \external_function_parameters $description Description of function parameters.
+     * @param array $args Argument list of function obtanied by calling func_get_args().
+     * @return mixed[] Validated parameters.
+     */
+    private static function validate_call(\external_function_parameters $description, array $args): array {
+        self::validate_context(\context_system::instance());
+        if (!settings::is_installed()) {
+            throw new exception('pluginnotinstalled');
         }
+        $keys = array_slice(array_keys($description->keys), 0, count($args));
+        $values = array_slice($args, 0, count($description->keys));
+        $params = array_combine($keys, $values);
+        return self::validate_parameters($description, $params);
     }
 }

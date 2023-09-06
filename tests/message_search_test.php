@@ -38,7 +38,6 @@ class message_search_test extends testcase {
     private const NUM_COURSES_PER_USER = 4;
     private const NUM_LABELS_PER_USER = 3;
     private const NUM_MESSAGES = 1000;
-    private const FORWARD_FREQ = 0.2;
     private const DRAFT_FREQ = 0.2;
     private const RECIPIENT_FREQ = 0.2;
     private const UNREAD_FREQ = 0.2;
@@ -76,7 +75,7 @@ class message_search_test extends testcase {
         foreach (self::cases($users, $messages) as $search) {
             $expected = [];
             foreach (self::search_result($messages, $search) as $message) {
-                foreach ($message->labels[$search->user->id] as $label) {
+                foreach ($message->labels($search->user) as $label) {
                     if (!$search->label || $search->label->id == $label->id) {
                         $expected[$label->id] = ($expected[$label->id] ?? 0) + 1;
                     }
@@ -89,15 +88,16 @@ class message_search_test extends testcase {
     public function test_fetch() {
         list($users, $messages) = self::generate_data();
         foreach (self::cases($users, $messages) as $search) {
-            foreach ([0, 10, 10000] as $offset) {
-                foreach ([0, 10, 10000] as $limit) {
-                    $expected = self::search_result($messages, $search, $offset, $limit);
-                    $desc = $search . "\noffset: " . $offset . "\nlimit: " . $limit;
-                    $result = $search->fetch($offset, $limit);
-                    self::assertEquals($expected, $result, $desc);
-                    self::assertEquals(array_keys($expected), array_keys($result), $desc);
-                }
-            }
+            $expected = self::search_result($messages, $search);
+            $result = $search->fetch(0, 0);
+            self::assertEquals($expected, $result, $search);
+            self::assertEquals(array_keys($expected), array_keys($result), $search);
+
+            // Offset and limit.
+            $expected = array_slice($expected, 5, 20, true);
+            $result = $search->fetch(5, 20);
+            self::assertEquals($expected, $result, $search);
+            self::assertEquals(array_keys($expected), array_keys($result), $search);
         }
     }
 
@@ -151,7 +151,7 @@ class message_search_test extends testcase {
             $result[] = $search;
 
             // Course.
-            foreach ($user->get_courses() as $course) {
+            foreach (course::fetch_by_user($user) as $course) {
                 $search = new message_search($user);
                 $search->course = $course;
                 $result[] = $search;
@@ -265,12 +265,7 @@ class message_search_test extends testcase {
                 $time++;
             }
 
-            if (self::random_bool(self::FORWARD_FREQ) && count($sentmessages) > 0) {
-                $ref = self::random_item($sentmessages);
-                $data = message_data::forward($ref, self::random_item($ref->users));
-            } else {
-                $data = message_data::new(self::random_item($courses), self::random_item($users));
-            }
+            $data = message_data::new(self::random_item($courses), self::random_item($users));
 
             if (self::random_bool(self::ATTACHMENT_FREQ)) {
                 self::create_draft_file($data->draftitemid, 'file.txt', 'text');
@@ -296,14 +291,16 @@ class message_search_test extends testcase {
 
             $messages[] = $message;
 
-            if (self::random_bool(self::DRAFT_FREQ) || count($message->users) == 1) {
+            if (self::random_bool(self::DRAFT_FREQ) || !$message->recipients()) {
                 continue;
             }
 
             $message->send($time);
             $sentmessages[] = $message;
 
-            foreach ($message->users as $user) {
+            $message->set_unread($data->sender, self::random_bool(self::UNREAD_FREQ));
+
+            foreach ([$data->sender, ...$message->recipients()] as $user) {
                 $message->set_unread($user, self::random_bool(self::UNREAD_FREQ));
                 if ($user->id != $data->sender->id) {
                     $message->set_starred($user, self::random_bool(self::STARRED_FREQ));
@@ -326,12 +323,10 @@ class message_search_test extends testcase {
      *
      * @param message[] $messages Array of messages.
      * @param message_search $search Search parameters.
-     * @param int $offset Skip this number of messages.
-     * @param int $limit Limit the number of messages.
      * @return message[] Found messages, ordered from newer to older and indexed by ID.
      */
-    protected static function search_result(array $messages, message_search $search, int $offset = 0, int $limit = 0): array {
-        $courseids = $search->course ? [$search->course->id] : array_keys($search->user->get_courses());
+    protected static function search_result(array $messages, message_search $search): array {
+        $courseids = $search->course ? [$search->course->id] : array_keys(course::fetch_by_user($search->user));
 
         $result = [];
 
@@ -340,13 +335,13 @@ class message_search_test extends testcase {
                 !in_array($message->course->id, $courseids) ||
                 $search->user->id != $message->sender()->id && !$message->has_recipient($search->user) ||
                 $search->user->id != $message->sender()->id && $message->draft ||
-                $search->label && !isset($message->labels[$search->label->user->id][$search->label->id]) ||
+                $search->label && !$message->has_label($search->label) ||
                 $search->draft !== null && $search->draft != $message->draft ||
-                $search->roles && !in_array($message->roles[$search->user->id], $search->roles) ||
-                $search->unread !== null && $message->unread[$search->user->id] != $search->unread ||
-                $search->starred !== null && $message->starred[$search->user->id] != $search->starred ||
-                !$search->deleted && $message->deleted[$search->user->id] != message::NOT_DELETED ||
-                $search->deleted && $message->deleted[$search->user->id] != message::DELETED ||
+                $search->roles && !in_array($message->role($search->user), $search->roles) ||
+                $search->unread !== null && $message->unread($search->user) != $search->unread ||
+                $search->starred !== null && $message->starred($search->user) != $search->starred ||
+                !$search->deleted && $message->deleted($search->user) != message::NOT_DELETED ||
+                $search->deleted && $message->deleted($search->user) != message::DELETED ||
                 $search->withfilesonly && $message->attachments == 0 ||
                 $search->maxtime && $message->time > $search->maxtime ||
                 $search->start && !$search->reverse && $message->id >= $search->start->id ||
@@ -365,11 +360,9 @@ class message_search_test extends testcase {
                 if (\core_text::strpos(message::normalize_text($message->content), $pattern) !== false) {
                     $found = true;
                 }
-                foreach ($message->users as $user) {
-                    if ($message->roles[$user->id] != message::ROLE_BCC) {
-                        if (\core_text::strpos($user->fullname(), $pattern) !== false) {
-                            $found = true;
-                        }
+                foreach ([$message->sender(), ...$message->recipients(message::ROLE_TO, message::ROLE_CC)] as $user) {
+                    if (\core_text::strpos($user->fullname(), $pattern) !== false) {
+                        $found = true;
                     }
                 }
                 if (!$found) {
@@ -402,6 +395,6 @@ class message_search_test extends testcase {
             $result = array_reverse($result, true);
         }
 
-        return array_slice($result, $offset, $limit ?: null, true);
+        return $result;
     }
 }

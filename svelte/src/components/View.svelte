@@ -2,44 +2,60 @@
 
 <script lang="ts">
     import { onMount, afterUpdate } from 'svelte';
-
+    import { ViewportSize } from '../lib/state';
+    import type { Store } from '../lib/store';
+    import { getViewParamsFromUrl } from '../lib/url';
     import ComposeButton from './ComposeButton.svelte';
     import ErrorModal from './ErrorModal.svelte';
     import BottomToolBar from './BottomToolBar.svelte';
     import List from './List.svelte';
     import Menu from './Menu.svelte';
     import Message from './Message.svelte';
-    import MessageForm from './MessageForm.svelte';
+    import DraftForm from './DraftForm.svelte';
     import PerPageSelect from './PerPageSelect.svelte';
+    import PreferencesButton from './PreferencesButton.svelte';
+    import PreferencesDialog from './PreferencesDialog.svelte';
     import SearchBox from './SearchBox.svelte';
     import Toasts from './Toasts.svelte';
     import TopToolBar from './TopToolBar.svelte';
-    import { ViewSize, type Store } from '../lib/store';
-    import { getViewParamsFromUrl } from '../lib/url';
 
     export let store: Store;
 
     let viewNode: HTMLElement;
     let prevNavigationId = 0;
 
+    $: tray = $store.params.tray;
+
     $: heading =
-        $store.params.tray == 'inbox'
+        tray == 'inbox'
             ? $store.strings.inbox
-            : $store.params.tray == 'starred'
+            : tray == 'starred'
             ? $store.strings.starredmail
-            : $store.params.tray == 'sent'
+            : tray == 'sent'
             ? $store.strings.sentmail
-            : $store.params.tray == 'drafts'
+            : tray == 'drafts'
             ? $store.strings.drafts
-            : $store.params.tray == 'trash'
+            : tray == 'trash'
             ? $store.strings.trash
-            : $store.params.tray == 'label'
+            : tray == 'label'
             ? $store.labels.find((l) => l.id == $store.params.labelid)?.name || ''
-            : $store.params.tray == 'course'
+            : tray == 'course'
             ? $store.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
             : '';
 
     $: title = $store.message ? $store.message.subject.trim() || $store.strings.nosubject : heading;
+
+    $: mobileTitle =
+        $store.viewportSize < ViewportSize.LG ? heading || $store.strings.pluginname : '';
+
+    $: window.parent?.postMessage(
+        {
+            addon: 'local_mail',
+            setTitle: mobileTitle,
+            captureBack: tray != null,
+        },
+        '*',
+    );
 
     onMount(() => {
         store.setViewportSize(window.innerWidth);
@@ -59,71 +75,104 @@
             return '';
         }
     };
+
+    const handleMessage = (event: MessageEvent) => {
+        if ($store.mobile && event.data.addon == 'local_mail' && event.data.backClicked) {
+            store.navigateToMenu();
+        }
+    };
+
+    const handleClick = (event: Event) => {
+        if ($store.mobile && !event.defaultPrevented && event.target instanceof HTMLElement) {
+            const link = event.target.closest('a');
+            if (link) {
+                window.parent?.postMessage({ addon: 'local_mail', openUrl: link.href }, '*');
+            }
+            if (!event.defaultPrevented) {
+                event.preventDefault();
+            }
+        }
+    };
 </script>
 
 <svelte:window
     on:resize={() => store.setViewportSize(window.innerWidth)}
     on:popstate={() => store.navigate(getViewParamsFromUrl())}
     on:beforeunload={handleBeforeUnload}
+    on:message={handleMessage}
 />
+
+<svelte:document on:click={$store.mobile ? handleClick : undefined} />
+
 <svelte:head>
     <title>{title} - {$store.strings.pluginname}</title>
 </svelte:head>
 
 <div
-    class="local-mail-view container-fluid py-4"
+    class="local-mail-view container-fluid pt-2"
+    class:p-4={!$store.mobile}
     class:local-mail-loading={$store.loading}
     bind:this={viewNode}
 >
     <!-- Heading / search / compose button -->
     <div class="row align-items-center">
-        <h1 class="h2 local-mail-view-side-column text-truncate mb-4">
-            {$store.strings.pluginname}
-            {#if $store.viewSize < ViewSize.LG}
-                <i class="fa fa-angle-right mx-1" aria-hidden="true" />
-                {heading}
-            {/if}
-        </h1>
+        {#if $store.mobile && $store.viewportSize < ViewportSize.LG}
+            <div class="local-mail-view-side-column" />
+        {:else}
+            <h1 class="h2 local-mail-view-side-column text-truncate mb-4">
+                {$store.strings.pluginname}
+                {#if $store.viewportSize < ViewportSize.LG}
+                    <i class="fa fa-angle-right mx-1" aria-hidden="true" />
+                    {heading}
+                {/if}
+            </h1>
+        {/if}
 
         <div class="local-mail-view-main-column d-flex mb-4">
-            <div class="local-mail-view-search">
-                <SearchBox {store} />
-            </div>
-            {#if $store.viewSize < ViewSize.LG}
+            {#if tray}
+                <div class="local-mail-view-search">
+                    <SearchBox {store} />
+                </div>
+            {/if}
+            {#if $store.viewportSize < ViewportSize.LG}
                 <div class="text-truncate d-flex">
                     <ComposeButton
                         strings={$store.strings}
-                        courseid={$store.params.courseid}
-                        courses={$store.courses}
-                        onClick={store.navigate}
-                        onError={store.setError}
+                        iconOnly={tray && $store.viewportSize < ViewportSize.SM}
+                        onClick={() => store.createMessage()}
                     />
                 </div>
+                {#if !tray}
+                    <div class="ml-auto">
+                        <PreferencesButton
+                            strings={$store.strings}
+                            onClick={() => store.showDialog('preferences')}
+                        />
+                    </div>
+                {/if}
             {/if}
         </div>
     </div>
 
     <!-- Toolbar -->
-    <div class="row mb-3">
-        {#if $store.viewSize >= ViewSize.LG}
-            <div class="local-mail-view-side-column">
-                <ComposeButton
-                    strings={$store.strings}
-                    courseid={$store.params.courseid}
-                    courses={$store.courses}
-                    onClick={store.navigate}
-                    onError={store.setError}
-                />
-            </div>
-        {/if}
-        <div class="local-mail-view-main-column d-flex">
-            <TopToolBar {store} />
+    {#if tray || $store.viewportSize >= ViewportSize.LG}
+        <div class="row mb-3">
+            {#if $store.viewportSize >= ViewportSize.LG}
+                <div class="local-mail-view-side-column">
+                    <ComposeButton strings={$store.strings} onClick={() => store.createMessage()} />
+                </div>
+            {/if}
+            {#if tray}
+                <div class="local-mail-view-main-column d-flex">
+                    <TopToolBar {store} />
+                </div>
+            {/if}
         </div>
-    </div>
+    {/if}
 
     <!-- List / Messaege -->
     <div class="row mb-3">
-        {#if $store.viewSize >= ViewSize.LG}
+        {#if !tray || $store.viewportSize >= ViewportSize.LG}
             <div class="local-mail-view-side-column">
                 <Menu
                     settings={$store.settings}
@@ -137,20 +186,27 @@
                 />
             </div>
         {/if}
-        <div class="local-mail-view-main-column">
-            {#if $store.message?.draft && $store.draftForm}
-                <MessageForm {store} message={$store.message} form={$store.draftForm} />
-            {:else if $store.message}
-                <Message {store} message={$store.message} />
-            {:else}
-                <List {store} />
-                <PerPageSelect {store} />
-            {/if}
-        </div>
+        {#if tray}
+            <div class="local-mail-view-main-column">
+                {#if $store.message?.draft && $store.draftForm}
+                    <DraftForm {store} message={$store.message} form={$store.draftForm} />
+                {:else if $store.message}
+                    <Message {store} message={$store.message} />
+                {:else}
+                    <List {store} />
+
+                    <PerPageSelect {store} />
+                {/if}
+            </div>
+        {/if}
     </div>
 
-    {#if $store.viewSize < ViewSize.MD}
+    {#if tray && $store.viewportSize < ViewportSize.MD}
         <BottomToolBar {store} />
+    {/if}
+
+    {#if $store.params.dialog == 'preferences'}
+        <PreferencesDialog {store} onCancel={() => store.hideDialog()} />
     {/if}
 
     <Toasts {store} />
@@ -207,6 +263,10 @@
 
     .local-mail-view :global(.fa) {
         font-size: 16px;
+    }
+
+    .local-mail-view :global(.form-control) {
+        font-size: 1rem !important;
     }
 
     .local-mail-view-main-column {

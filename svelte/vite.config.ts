@@ -8,13 +8,14 @@ export default defineConfig({
         manifest: true,
         outDir: 'build',
         rollupOptions: {
-            input: [resolve(__dirname, 'src/view.ts'), resolve(__dirname, 'src/navbar.ts')],
+            input: [resolve(__dirname, 'src/view.ts'), resolve(__dirname, 'src/navigation.ts')],
             output: {
                 entryFileNames: `[name]-[hash].js`,
                 chunkFileNames: `[name]-[hash].js`,
                 assetFileNames: `[name]-[hash][extname]`,
             },
         },
+        sourcemap: true,
     },
     plugins: [svelte()],
 });

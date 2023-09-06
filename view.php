@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+use local_mail\course;
 use local_mail\external;
-use local_mail\message;
+use local_mail\settings;
 use local_mail\user;
 
 require_once('../../config.php');
-require_once('locallib.php');
 
 global $PAGE;
 
@@ -27,40 +27,16 @@ $type = optional_param('t', 'inbox', PARAM_ALPHA);
 $messageid = optional_param('m', 0, PARAM_INT);
 $courseid = optional_param('c', SITEID, PARAM_INT);
 $labelid = optional_param('l', 0, PARAM_INT);
+$appid = optional_param('appid', '', PARAM_NOTAGS);
+$applang = optional_param('applang', '', PARAM_LANG);
 
-$reply = optional_param('reply', false, PARAM_BOOL);
-$replyall = optional_param('replyall', false, PARAM_BOOL);
-$forward = optional_param('forward', false, PARAM_BOOL);
-
-if (!local_mail_is_installed()) {
-    throw new moodle_exception('pluginnotinstalled', 'local_mail');
+// Use languuage from the app.
+if ($appid != '' && $applang != '') {
+    force_current_language($applang);
 }
 
-if ($reply || $replyall || $forward) {
-    $messageid = required_param('m', PARAM_INT);
-
-    $message = message::fetch($messageid);
-    $user = user::current();
-    if (!$message || !$user->can_view_message($message)) {
-        throw new \moodle_exception('errormessagenotfound', 'local_mail');
-    }
-
-    require_login($message->course->id, false);
-    require_sesskey();
-    require_capability('local/mail:usemail', $PAGE->context);
-
-    if (!$user->can_view_message($message)) {
-        throw new \moodle_exception('errormessagenotfound', 'local_mail');
-    }
-
-    if ($forward) {
-        $newmessage = $message->forward($user, time());
-    } else {
-        $newmessage = $message->reply($user, $replyall, time());
-    }
-
-    $url = new moodle_url('/local/mail/compose.php', array('m' => $newmessage->id));
-    redirect($url);
+if (!settings::is_installed()) {
+    throw new moodle_exception('pluginnotinstalled', 'local_mail');
 }
 
 require_login(null, false);
@@ -81,25 +57,33 @@ if ($type == 'label') {
 }
 $PAGE->set_url($url);
 $PAGE->set_context(context_system::instance());
-$PAGE->set_pagelayout('base');
+$PAGE->set_pagelayout($appid != '' ? 'embedded' : 'base');
 $PAGE->set_title(get_string('pluginname', 'local_mail'));
 
+$user = user::current();
+if ($user && course::fetch_by_user($user)) {
+    // Initial data passed via a script tag.
+    $data = [
+        'userid' => $user->id,
+        'settings' => (array) settings::fetch(),
+        'preferences' => external::get_preferences_raw(),
+        'strings' => external::get_strings_raw(),
+        'mobile' => $appid != '',
+    ];
 
-// Initial data passed via a script tag.
-$data = [
-    'userid' => $USER->id,
-    'settings' => external::get_settings_raw(),
-    'preferences' => external::get_preferences_raw(),
-    'strings' => external::get_strings_raw(),
-];
+    // Prepare script and styles before sending header.
+    $renderer = $PAGE->get_renderer('local_mail');
+    $sveltescript = $renderer->svelte_script('src/view.ts');
 
-$datascript = html_writer::script('window.local_mail_view_data = ' . json_encode($data));
-
-$sveltescript = local_mail_svelte_script('src/view.ts');
-
-// Print content.
-echo $OUTPUT->header();
-echo html_writer::div('', '', ['id' => 'local-mail-view']);
-echo $datascript;
-echo $sveltescript;
-echo $OUTPUT->footer();
+    // Print content.
+    echo $OUTPUT->header();
+    echo html_writer::div('', '', ['id' => 'local-mail-view']);
+    echo html_writer::script('window.local_mail_view_data = ' . json_encode($data));
+    echo $sveltescript;
+    echo $OUTPUT->footer();
+} else {
+    // Print error.
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(get_string('errornocourses', 'local_mail'), 'warning', false);
+    echo $OUTPUT->footer();
+}

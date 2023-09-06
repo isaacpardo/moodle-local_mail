@@ -1,10 +1,10 @@
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import type { MessageLabel } from '../lib/services';
+    import type { Label } from '../lib/state';
     import { colors } from '../lib/utils';
 
-    export let label: MessageLabel;
+    export let label: Label;
 
     $: color = colors.includes(label.color) ? label.color : 'gray';
 </script>

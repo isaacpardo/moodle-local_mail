@@ -1,14 +1,14 @@
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import { type Store } from '../lib/store';
+    import type { Store } from '../lib/store';
     import ModalDialog from './ModalDialog.svelte';
 
     export let store: Store;
 </script>
 
 {#if $store.error}
-    <ModalDialog title={$store.strings.error} handleCancel={() => store.setError()}>
+    <ModalDialog title={$store.strings.error} onCancel={() => store.setError()}>
         <p>{$store.error?.message}</p>
         {#if $store.error?.debuginfo}
             <p>{$store.error?.debuginfo}</p>

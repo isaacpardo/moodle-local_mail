@@ -82,18 +82,8 @@ class user {
     public function can_edit_message(message $message): bool {
         return $message->draft &&
             $this->id == $message->sender()->id &&
-            $message->deleted[$this->id] != message::DELETED_FOREVER &&
+            $message->deleted($this) != message::DELETED_FOREVER &&
             $this->can_use_mail($message->course);
-    }
-
-    /**
-     * Returns whether the user can send mail to a user in a course.
-     *
-     * @param course $course Course.
-     * @return bool
-     */
-    public function can_send_mail(course $course, user $user) {
-        return $this->can_use_mail($course) && $user->can_use_mail($course);
     }
 
     /**
@@ -133,7 +123,7 @@ class user {
      */
     public function can_view_message(message $message): bool {
         return ($message->sender()->id == $this->id || !$message->draft && $message->has_recipient($this)) &&
-            $message->deleted[$this->id] != message::DELETED_FOREVER &&
+            $message->deleted($this) != message::DELETED_FOREVER &&
             $this->can_use_mail($message->course);
     }
 
@@ -178,14 +168,13 @@ class user {
         $params['guestid'] = $CFG->siteguest;
         $fields = implode(',', \core_user\fields::get_picture_fields());
 
-        list($sort, $sortparams) = users_order_by_sql();
-        $params = array_merge($params, $sortparams);
-
-        $records = $DB->get_records_select('user', $select, $params, $sort, $fields);
+        $records = $DB->get_records_select('user', $select, $params, '', $fields);
 
         $users = [];
-        foreach ($records as $record) {
-            $users[$record->id] = new self($record);
+        foreach ($ids as $id) {
+            if (isset($records[$id])) {
+                $users[$id] = new self($records[$id]);
+            }
         }
 
         return $users;
@@ -201,41 +190,6 @@ class user {
     }
 
     /**
-     * Fetches courses where the user can use mail.
-     *
-     * @return course[] The fetched courses.
-     */
-    public function get_courses(): array {
-        $courses = [];
-
-        foreach (enrol_get_users_courses($this->id, true) as $record) {
-            $context = \context_course::instance($record->id);
-            if (has_capability('local/mail:usemail', $context, $this->id, false)) {
-                $courses[$record->id] = new course($record);
-            }
-        }
-
-        return $courses;
-    }
-
-    /**
-     * Returns the roles of a user in the course.
-     *
-     * @param course $course Course.
-     * @return string[] Array of role names, indexed by ID.
-     */
-    public function get_roles(course $course): array {
-        $result = [];
-        $courseroles = get_viewable_roles($course->context(), $this->id);
-        foreach (get_user_roles($course->context(), $this->id, false) as $ra) {
-            if (isset($courseroles[$ra->roleid])) {
-                $result[$ra->roleid] = $courseroles[$ra->roleid];
-            }
-        }
-        return $result;
-    }
-
-    /**
      * URL of the picture of the user.
      *
      * @return string
@@ -247,12 +201,26 @@ class user {
     }
 
     /**
-     * URL of the profile of the user.
+     * URL of the profile of the user in a course.
+     *
+     * @param course $course Course.
+     * @return string
+     */
+    public function profile_url(course $course): string {
+        $params = ['id' => $this->id];
+        if ($course) {
+            $params['course'] = $course->id;
+        }
+        $url = new \moodle_url('/user/view.php', $params);
+        return $url->out(false);
+    }
+
+    /**
+     * Sort order of the user.
      *
      * @return string
      */
-    public function profile_url(): string {
-        $url = new \moodle_url('/user/profile.php', ['id' => $this->id]);
-        return $url->out(false);
+    public function sortorder(): string {
+        return sprintf("%s\n%s\n%010d", $this->lastname, $this->firstname, $this->id);
     }
 }
