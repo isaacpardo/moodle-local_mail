@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -40,7 +45,7 @@
             type="button"
             class="btn"
             aria-expanded={expanded}
-            title={$store.strings.moreactions}
+            title={$store.strings.more}
             on:click={toggleMenu}
         >
             <i class="fa fa-fw fa-ellipsis-v align-middle" />

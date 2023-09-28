@@ -1,18 +1,10 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2017 Albert Gasset <albertgasset@fsfe.org>
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -22,13 +14,6 @@ require_once("$CFG->libdir/externallib.php");
 
 class external extends \external_api {
 
-    const ROLES = [
-        message::ROLE_FROM => 'from',
-        message::ROLE_TO => 'to',
-        message::ROLE_CC => 'cc',
-        message::ROLE_BCC => 'bcc',
-    ];
-
     public static function get_settings_parameters() {
         return new \external_function_parameters([]);
     }
@@ -36,7 +21,7 @@ class external extends \external_api {
     public static function get_settings() {
         self::validate_call(self::get_settings_parameters(), func_get_args());
 
-        return (array) settings::fetch();
+        return (array) settings::get();
     }
 
     public static function get_settings_returns() {
@@ -100,7 +85,7 @@ class external extends \external_api {
                     'enabled' => new \external_value(PARAM_BOOL, 'Message processor is enabled'),
                     'locked' => new \external_value(PARAM_BOOL, 'Message processor is locked'),
                 ])
-            )
+            ),
         ]);
     }
 
@@ -111,43 +96,12 @@ class external extends \external_api {
     public static function get_strings() {
         self::validate_call(self::get_strings_parameters(), func_get_args());
 
-        return self::get_strings_raw();
-    }
-
-    public static function get_strings_raw() {
-        global $CFG;
-
-        $lang ??= current_language();
-
-        // Ignore language packages from AMOS for Catalan and Spanish.
-        if ($lang == 'ca' || $lang == 'es') {
-            $string = [];
-
-            // First load english pack.
-            include("$CFG->dirroot/local/mail/lang/en/local_mail.php");
-
-            // And then corresponding local english if present.
-            if (file_exists("$CFG->langlocalroot/en_local/local_mail.php")) {
-                include("$CFG->langlocalroot/en_local/local_mail.php");
-            }
-
-            // Legacy location - used by contrib only.
-            include("$CFG->dirroot/local/mail/lang/$lang/local_mail.php");
-
-            // Local customisations.
-            if (file_exists("$CFG->langlocalroot/{$lang}_local/local_mail.php")) {
-                include("$CFG->langlocalroot/{$lang}_local/local_mail.php");
-            }
-
-            return $string;
-        }
-
-        return get_string_manager()->load_component_strings('local_mail', $lang);
+        return output\strings::get_all();
     }
 
     public static function get_strings_returns() {
         $stringkeys = [];
-        foreach (array_keys(get_string_manager()->load_component_strings('local_mail', 'en')) as $id) {
+        foreach (output\strings::get_ids() as $id) {
             $stringkeys[$id] = new \external_value(PARAM_RAW, 'Localized content of language string "' . $id . '"');
         }
         return new \external_single_structure($stringkeys);
@@ -190,7 +144,7 @@ class external extends \external_api {
             'markasread' => new \external_value(PARAM_BOOL, 'Mark new messages as read if a notification is sent'),
             'notifications' => new \external_multiple_structure(
                 new \external_value(PARAM_PLUGIN, 'Name of the message processor')
-            )
+            ),
         ]);
     }
 
@@ -211,7 +165,7 @@ class external extends \external_api {
                     new \external_value(PARAM_PLUGIN, 'Name of the message processor'),
                     'Notifications',
                     VALUE_OPTIONAL
-                )
+                ),
             ]),
         ]);
     }
@@ -234,7 +188,7 @@ class external extends \external_api {
         }
 
         if (isset($params['preferences']['notifications'])) {
-            $processornames = array_column(get_message_processors(true) , 'name');
+            $processornames = array_column(get_message_processors(true), 'name');
             if (array_diff($params['preferences']['notifications'],  $processornames)) {
                 throw new \invalid_parameter_exception('"notifications" must contain message processor names');
             }
@@ -261,7 +215,7 @@ class external extends \external_api {
 
     public static function get_courses_raw() {
         $user = user::current();
-        $courses = course::fetch_by_user($user);
+        $courses = course::get_by_user($user);
 
         if (!$courses) {
             return [];
@@ -272,6 +226,11 @@ class external extends \external_api {
         $search->unread = true;
         $unread = $search->count_per_course();
 
+        $search = new message_search($user);
+        $search->roles = [message::ROLE_FROM];
+        $search->draft = true;
+        $drafts = $search->count_per_course();
+
         $result = [];
         foreach ($courses as $course) {
             $result[] = [
@@ -281,6 +240,7 @@ class external extends \external_api {
                 'visible' => $course->visible,
                 'groupmode' => $course->groupmode,
                 'unread' => $unread[$course->id] ?? 0,
+                'drafts' => $drafts[$course->id] ?? 0,
             ];
         }
 
@@ -293,9 +253,10 @@ class external extends \external_api {
                 'id' => new \external_value(PARAM_INT, 'Id of the course'),
                 'shortname' => new \external_value(PARAM_TEXT, 'Short name of the course'),
                 'fullname' => new \external_value(PARAM_TEXT, 'Full name of the course'),
-                'unread' => new \external_value(PARAM_INT, 'Number of unread messages'),
                 'visible' => new \external_value(PARAM_BOOL, 'Course visibility'),
                 'groupmode' => new \external_value(PARAM_INT, 'Group mode: 0 (no), 1 (separate) or 2 (visible)'),
+                'unread' => new \external_value(PARAM_INT, 'Number of unread messages'),
+                'drafts' => new \external_value(PARAM_INT, 'Number of drafts'),
             ])
         );
     }
@@ -320,13 +281,18 @@ class external extends \external_api {
         $search->unread = true;
         $unread = $search->count_per_label();
 
-        foreach (label::fetch_by_user($user) as $label) {
-            $result[] = [
+        foreach (label::get_by_user($user) as $label) {
+            $labelresult = [
                 'id' => $label->id,
                 'name' => $label->name,
                 'color' => $label->color,
-                'unread' => $unread[$label->id] ?? 0,
+                'unread' => array_sum($unread[$label->id] ?? []),
+                'courses' => [],
             ];
+            foreach ($unread[$label->id] ?? [] as $courseid => $courseunread) {
+                $labelresult['courses'][] = ['id' => $courseid, 'unread' => $courseunread];
+            }
+            $result[] = $labelresult;
         }
 
         return $result;
@@ -339,6 +305,12 @@ class external extends \external_api {
                 'name' => new \external_value(PARAM_TEXT, 'Nane of the label'),
                 'color' => new \external_value(PARAM_ALPHA, 'Color of the label'),
                 'unread' => new \external_value(PARAM_INT, 'Number of unread messages'),
+                'courses' => new \external_multiple_structure(
+                    new \external_single_structure([
+                        'id' => new \external_value(PARAM_INT, 'Id of the course'),
+                        'unread' => new \external_value(PARAM_INT, 'Number of unread messages'),
+                    ]),
+                ),
             ])
         );
     }
@@ -441,16 +413,16 @@ class external extends \external_api {
         $search = new message_search($user);
 
         if ($query['courseid']) {
-            $search->course = course::fetch($query['courseid']);
-            if (!$search->course || !$user->can_use_mail($search->course)) {
-                throw new exception('errorcoursenotfound');
+            $search->course = course::get($query['courseid']);
+            if (!$user->can_use_mail($search->course)) {
+                throw new exception('errorcoursenotfound', $search->course->id);
             }
         }
 
         if ($query['labelid']) {
-            $search->label = label::fetch($query['labelid']);
-            if (!$search->label || $search->label->user->id != $user->id) {
-                throw new exception('errorlabelnotfound');
+            $search->label = label::get($query['labelid']);
+            if ($search->label->userid != $user->id) {
+                throw new exception('errorlabelnotfound', $search->label->id);
             }
         }
 
@@ -459,7 +431,7 @@ class external extends \external_api {
         }
 
         foreach ($query['roles'] as $rolename) {
-            $role = array_search($rolename, self::ROLES);
+            $role = array_search($rolename, message::role_names());
             if ($role === false) {
                 throw new \invalid_parameter_exception('invalid role: ' . $rolename);
             }
@@ -482,17 +454,11 @@ class external extends \external_api {
         $search->maxtime = $query['maxtime'];
 
         if ($query['startid']) {
-            $search->start = message::fetch($query['startid']);
-            if (!$search->start) {
-                throw new \invalid_parameter_exception('invalid startid: ' . $query['startid']);
-            }
+            $search->start = message::get($query['startid']);
         }
 
         if ($query['stopid']) {
-            $search->stop = message::fetch($query['stopid']);
-            if (!$search->stop) {
-                throw new \invalid_parameter_exception('invalid stopid: ' . $query['stopid']);
-            }
+            $search->stop = message::get($query['stopid']);
         }
 
         $search->reverse = $query['reverse'];
@@ -541,7 +507,7 @@ class external extends \external_api {
 
         $search = self::validate_query_parameter($params['query']);
 
-        $messages = $search->fetch($params['offset'], $params['limit']);
+        $messages = $search->get($params['offset'], $params['limit']);
 
         return self::search_messages_response($search->user, $messages);
     }
@@ -553,20 +519,23 @@ class external extends \external_api {
         $result = [];
 
         foreach ($messages as $message) {
-            $sender = $message->sender();
+            $course = $message->get_course();
+            $sender = $message->get_sender();
             $recipients = [];
-            foreach ($message->recipients(message::ROLE_TO, message::ROLE_CC) as $recipient) {
+            foreach ($message->get_recipients(message::ROLE_TO, message::ROLE_CC) as $recipient) {
                 $recipients[] = [
-                    'type' => self::ROLES[$message->role($recipient)],
+                    'type' => message::role_names()[$message->role($recipient)],
                     'id' => $recipient->id,
+                    'firstname' => $recipient->firstname,
+                    'lastname' => $recipient->lastname,
                     'fullname' => $recipient->fullname(),
                     'pictureurl' => $recipient->picture_url(),
-                    'profileurl' => $recipient->profile_url($message->course),
+                    'profileurl' => $recipient->profile_url($course),
                     'sortorder' => $recipient->sortorder(),
                 ];
             }
             $labels = [];
-            foreach ($message->labels($user) as $label) {
+            foreach ($message->get_labels($user) as $label) {
                 $labels[] = [
                     'id' => $label->id,
                     'name' => $label->name,
@@ -585,17 +554,19 @@ class external extends \external_api {
                 'starred' => $message->starred($user),
                 'deleted' => $message->deleted($user) != message::NOT_DELETED,
                 'course' => [
-                    'id' => $message->course->id,
-                    'shortname' => $message->course->shortname,
-                    'fullname' => $message->course->fullname,
-                    'visible' => $message->course->visible,
-                    'groupmode' => $message->course->groupmode,
+                    'id' => $course->id,
+                    'shortname' => $course->shortname,
+                    'fullname' => $course->fullname,
+                    'visible' => $course->visible,
+                    'groupmode' => $course->groupmode,
                 ],
                 'sender' => [
                     'id' => $sender->id,
+                    'firstname' => $sender->firstname,
+                    'lastname' => $sender->lastname,
                     'fullname' => $sender->fullname(),
                     'pictureurl' => $sender->picture_url(),
-                    'profileurl' => $sender->profile_url($message->course),
+                    'profileurl' => $sender->profile_url($course),
                     'sortorder' => $sender->sortorder(),
                 ],
                 'recipients' => $recipients,
@@ -628,8 +599,10 @@ class external extends \external_api {
                 ], '', VALUE_OPTIONAL),
                 'sender' => new \external_single_structure([
                     'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                    'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                    'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                     'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
-                    'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
+                    'pictureurl' => new \external_value(PARAM_URL, 'User image URL', VALUE_OPTIONAL),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                     'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
                 ]),
@@ -637,6 +610,8 @@ class external extends \external_api {
                     new \external_single_structure([
                         'type' => new \external_value(PARAM_ALPHA, 'Role of the user: "to", "cc" or "bcc"'),
                         'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                        'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                        'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                         'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
@@ -665,10 +640,10 @@ class external extends \external_api {
 
         $user = user::current();
 
-        $message = message::fetch($params['messageid']);
+        $message = message::get($params['messageid']);
 
-        if (!$message || !$user->can_view_message($message)) {
-            throw new exception('errormessagenotfound');
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         return self::get_message_response($user, $message);
@@ -678,18 +653,18 @@ class external extends \external_api {
         global $PAGE;
         $renderer = $PAGE->get_renderer('local_mail');
 
-        $contextid = $message->course->context()->id;
+        $course = $message->get_course();
+        $context = $course->get_context();
+        $sender = $message->get_sender();
 
         list($content, $format) = \external_format_text(
             $message->content,
             $message->format,
-            $contextid,
+            $context->id,
             'local_mail',
             'message',
             $message->id
         );
-
-        $sender = $message->sender();
 
         $result = [
             'id' => $message->id,
@@ -705,17 +680,19 @@ class external extends \external_api {
             'starred' => $message->starred($user),
             'deleted' => (bool) $message->deleted($user),
             'course' => [
-                'id' => $message->course->id,
-                'shortname' => $message->course->shortname,
-                'fullname' => $message->course->fullname,
-                'visible' => $message->course->visible,
-                'groupmode' => $message->course->groupmode,
+                'id' => $course->id,
+                'shortname' => $course->shortname,
+                'fullname' => $course->fullname,
+                'visible' => $course->visible,
+                'groupmode' => $course->groupmode,
             ],
             'sender' => [
                 'id' => $sender->id,
+                'firstname' => $sender->firstname,
+                'lastname' => $sender->lastname,
                 'fullname' => $sender->fullname(),
                 'pictureurl' => $sender->picture_url(),
-                'profileurl' => $sender->profile_url($message->course),
+                'profileurl' => $sender->profile_url($course),
                 'sortorder' => $sender->sortorder(),
             ],
             'recipients' => [],
@@ -725,7 +702,7 @@ class external extends \external_api {
         ];
 
         $fs = get_file_storage();
-        $files = $fs->get_area_files($contextid, 'local_mail', 'message', $message->id, 'filename', false);
+        $files = $fs->get_area_files($context->id, 'local_mail', 'message', $message->id, 'filename', false);
         foreach ($files as $file) {
             $result['attachments'][] = [
                 'filepath' => $file->get_filepath(),
@@ -737,38 +714,40 @@ class external extends \external_api {
             ];
         }
 
-        $search = new user_search($user, $message->course);
-        $search->include = array_column($message->recipients(), 'id');
-        $validrecipients = $search->fetch();
+        $search = new user_search($user, $course);
+        $search->include = array_column($message->get_recipients(), 'id');
+        $validrecipients = $search->get();
 
-        foreach ($message->recipients() as $recipient) {
+        foreach ($message->get_recipients() as $recipient) {
             $role = $message->role($recipient);
             if ($role == message::ROLE_BCC && $user->id != $recipient->id && $user->id != $sender->id) {
                 continue;
             }
             $result['recipients'][] = [
-                'type' => self::ROLES[$role],
+                'type' => message::role_names()[$role],
                 'id' => $recipient->id,
+                'firstname' => $recipient->firstname,
+                'lastname' => $recipient->lastname,
                 'fullname' => $recipient->fullname(),
                 'pictureurl' => $recipient->picture_url(),
-                'profileurl' => $recipient->profile_url($message->course),
+                'profileurl' => $recipient->profile_url($course),
                 'sortorder' => $recipient->sortorder(),
                 'isvalid' => isset($validrecipients[$recipient->id]),
             ];
         }
 
-        foreach ($message->fetch_references() as $ref) {
+        foreach ($message->get_references() as $ref) {
             list($content, $format) = \external_format_text(
                 $ref->content,
                 $ref->format,
-                $contextid,
+                $context->id,
                 'local_mail',
                 'message',
                 $ref->id
             );
 
             $attachments = [];
-            $files = $fs->get_area_files($contextid, 'local_mail', 'message', $ref->id, 'filename', false);
+            $files = $fs->get_area_files($context->id, 'local_mail', 'message', $ref->id, 'filename', false);
 
             foreach ($files as $file) {
                 $attachments[] = [
@@ -781,7 +760,7 @@ class external extends \external_api {
                 ];
             }
 
-            $refsender = $ref->sender();
+            $refsender = $ref->get_sender();
 
             $result['references'][] = [
                 'id' => $ref->id,
@@ -793,16 +772,18 @@ class external extends \external_api {
                 'fulltime' => $renderer->formatted_time($ref->time, true),
                 'sender' => [
                     'id' => $refsender->id,
+                    'firstname' => $refsender->firstname,
+                    'lastname' => $refsender->lastname,
                     'fullname' => $refsender->fullname(),
                     'pictureurl' => $refsender->picture_url(),
-                    'profileurl' => $refsender->profile_url($message->course),
+                    'profileurl' => $refsender->profile_url($course),
                     'sortorder' => $sender->sortorder(),
                 ],
                 'attachments' => $attachments,
             ];
         }
 
-        foreach ($message->labels($user) as $label) {
+        foreach ($message->get_labels($user) as $label) {
             $result['labels'][] = [
                 'id' => $label->id,
                 'name' => $label->name,
@@ -812,7 +793,6 @@ class external extends \external_api {
 
         return $result;
     }
-
 
     public static function get_message_returns() {
         return new \external_single_structure([
@@ -837,6 +817,8 @@ class external extends \external_api {
             ]),
             'sender' => new \external_single_structure([
                 'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                 'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
@@ -846,6 +828,8 @@ class external extends \external_api {
                 new \external_single_structure([
                     'type' => new \external_value(PARAM_ALPHA, 'Role of the user: "to", "cc" or "bcc"'),
                     'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                    'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                    'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                     'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                     'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
@@ -874,6 +858,8 @@ class external extends \external_api {
                     'fulltime' => new \external_value(PARAM_TEXT, 'Formatted full time'),
                     'sender' => new \external_single_structure([
                         'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                        'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                        'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                         'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
@@ -901,6 +887,35 @@ class external extends \external_api {
         ]);
     }
 
+    public static function view_message_parameters() {
+        return new \external_function_parameters([
+            'messageid' => new \external_value(PARAM_INT, 'ID of the message'),
+        ]);
+    }
+
+    public static function view_message() {
+        $params = self::validate_call(self::view_message_parameters(), func_get_args());
+
+        $user = user::current();
+
+        $message = message::get($params['messageid']);
+
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
+        }
+
+        $message->set_unread($user, false);
+
+        if ($message->draft) {
+            event\draft_viewed::create_from_message($message)->trigger();
+        } else {
+            event\message_viewed::create_from_message($message)->trigger();
+        }
+    }
+
+    public static function view_message_returns() {
+        return null;
+    }
 
     public static function set_unread_parameters() {
         return new \external_function_parameters([
@@ -913,10 +928,10 @@ class external extends \external_api {
         $params = self::validate_call(self::set_unread_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
+        $message = message::get($params['messageid']);
 
-        if (!$message || !$user->can_view_message($message)) {
-            throw new exception('errormessagenotfound');
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         $message->set_unread($user, $params['unread']);
@@ -939,10 +954,10 @@ class external extends \external_api {
         $params = self::validate_call(self::set_starred_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
+        $message = message::get($params['messageid']);
 
-        if (!$message || !$user->can_view_message($message)) {
-            throw new exception('errormessagenotfound');
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         $message->set_starred($user, $params['starred']);
@@ -968,13 +983,17 @@ class external extends \external_api {
         $params = self::validate_call(self::set_deleted_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
+        $message = message::get($params['messageid']);
 
-        if (!$message || !$user->can_view_message($message)) {
-            throw new exception('errormessagenotfound');
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         $message->set_deleted($user, $params['deleted']);
+
+        if ($message->draft && $params['deleted'] == message::DELETED_FOREVER) {
+            event\draft_deleted::create_from_message($message)->trigger();
+        }
 
         return null;
     }
@@ -984,15 +1003,38 @@ class external extends \external_api {
     }
 
     public static function empty_trash_parameters() {
-        return new \external_function_parameters([]);
+        return new \external_function_parameters([
+            'courseid' => new \external_value(PARAM_INT, 'ID of the course', VALUE_DEFAULT, 0),
+        ]);
     }
 
     public static function empty_trash() {
-        self::validate_call(self::empty_trash_parameters(), func_get_args());
+        $params = self::validate_call(self::empty_trash_parameters(), func_get_args());
 
         $user = user::current();
 
-        message::empty_trash($user, course::fetch_by_user($user));
+        $course = null;
+        if ($params['courseid']) {
+            $course = course::get($params['courseid']);
+            if (!$user->can_use_mail($course)) {
+                throw new exception('errorcoursenotfound', $course->id);
+            }
+        }
+
+        $search = new message_search($user);
+        $search->course = $course;
+        $search->deleted = true;
+        $batchsize = 100;
+
+        do {
+            $messages = $search->get(0, $batchsize);
+            foreach ($messages as $message) {
+                $message->set_deleted($user, message::DELETED_FOREVER);
+                if ($message->draft) {
+                    event\draft_deleted::create_from_message($message)->trigger();
+                }
+            }
+        } while (count($messages) >= $batchsize);
 
         return null;
     }
@@ -1019,14 +1061,14 @@ class external extends \external_api {
             throw new exception('erroremptylabelname');
         }
 
-        foreach (label::fetch_by_user($user) as $label) {
+        foreach (label::get_by_user($user) as $label) {
             if ($label->name == $normalizedname) {
                 throw new exception('errorrepeatedlabelname');
             }
         }
 
         if ($params['color'] && !in_array($params['color'], label::COLORS)) {
-            throw new exception('errorinvalidcolor');
+            throw new \invalid_parameter_exception('invalid color: ' . $params['color']);
         }
 
         $label = label::create($user, $normalizedname, $params['color']);
@@ -1052,9 +1094,9 @@ class external extends \external_api {
 
         $user = user::current();
 
-        $label = label::fetch($params['labelid']);
-        if (!$label || $label->user->id != $user->id) {
-            throw new exception('errorlabelnotfound');
+        $label = label::get($params['labelid']);
+        if ($label->userid != $user->id) {
+            throw new exception('errorlabelnotfound', $label->id);
         }
 
         $normalizedname = label::nromalized_name($params['name']);
@@ -1062,14 +1104,14 @@ class external extends \external_api {
             throw new exception('erroremptylabelname');
         }
 
-        foreach ($label::fetch_by_user($user) as $userlabel) {
+        foreach ($label::get_by_user($user) as $userlabel) {
             if ($userlabel->id != $params['labelid'] && $userlabel->name == $normalizedname) {
                 throw new exception('errorrepeatedlabelname');
             }
         }
 
         if ($params['color'] && !in_array($params['color'], label::COLORS)) {
-            throw new exception('errorinvalidcolor');
+            throw new \invalid_parameter_exception('invalid color: ' . $params['color']);
         }
 
         $label->update($normalizedname, $params['color']);
@@ -1092,9 +1134,9 @@ class external extends \external_api {
 
         $user = user::current();
 
-        $label = label::fetch($params['labelid']);
-        if (!$label || $label->user->id != $user->id) {
-            throw new exception('errorlabelnotfound');
+        $label = label::get($params['labelid']);
+        if ($label->userid != $user->id) {
+            throw new exception('errorlabelnotfound', $label->id);
         }
 
         $label->delete();
@@ -1114,7 +1156,7 @@ class external extends \external_api {
                     PARAM_INT,
                     'ID of a label'
                 ),
-            )
+            ),
         ]);
     }
 
@@ -1122,16 +1164,16 @@ class external extends \external_api {
         $params = self::validate_call(self::set_labels_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
+        $message = message::get($params['messageid']);
 
-        if (!$message || !$user->can_view_message($message)) {
-            throw new exception('errormessagenotfound');
+        if (!$user->can_view_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
-        $labels = label::fetch_many($params['labelids']);
+        $labels = label::get_many($params['labelids']);
         foreach ($params['labelids'] as $id) {
-            if (!isset($labels[$id]) || $labels[$id]->user->id != $user->id) {
-                throw new exception('errorlabelnotfound');
+            if (!isset($labels[$id]) || $labels[$id]->userid != $user->id) {
+                throw new exception('errorlabelnotfound', $id);
             }
         }
 
@@ -1154,10 +1196,10 @@ class external extends \external_api {
         $params = self::validate_call(self::get_roles_parameters(), func_get_args());
 
         $user = user::current();
-        $course = course::fetch($params['courseid']);
+        $course = course::get($params['courseid']);
 
-        if (!$course || !$user->can_use_mail($course)) {
-            throw new exception('errorcoursenotfound');
+        if (!$user->can_use_mail($course)) {
+            throw new exception('errorcoursenotfound', $course->id);
         }
 
         $result = [];
@@ -1186,10 +1228,10 @@ class external extends \external_api {
         $params = self::validate_call(self::get_groups_parameters(), func_get_args());
 
         $user = user::current();
-        $course = course::fetch($params['courseid']);
+        $course = course::get($params['courseid']);
 
-        if (!$course || !$user->can_use_mail($course)) {
-            throw new exception('errorcoursenotfound');
+        if (!$user->can_use_mail($course)) {
+            throw new exception('errorcoursenotfound', $course->id);
         }
 
         $result = [];
@@ -1260,9 +1302,9 @@ class external extends \external_api {
         $params = self::validate_call(self::search_users_parameters(), func_get_args());
 
         $user = user::current();
-        $course = course::fetch($params['query']['courseid']);
-        if (!$course || !$user->can_use_mail($course)) {
-            throw new exception('errorcoursenotfound');
+        $course = course::get($params['query']['courseid']);
+        if (!$user->can_use_mail($course)) {
+            throw new exception('errorcoursenotfound', $course->id);
         }
 
         $search = new user_search($user, $course);
@@ -1283,7 +1325,7 @@ class external extends \external_api {
             $search->include = $params['query']['include'];
         }
 
-        $users = $search->fetch($params['offset'], $params['limit']);
+        $users = $search->get($params['offset'], $params['limit']);
 
         return self::search_users_response($course, $users);
     }
@@ -1294,6 +1336,8 @@ class external extends \external_api {
         foreach ($users as $user) {
             $result[] = [
                 'id' => $user->id,
+                'firstname' => $user->firstname,
+                'lastname' => $user->lastname,
                 'fullname' => $user->fullname(),
                 'pictureurl' => $user->picture_url(),
                 'profileurl' => $user->profile_url($course),
@@ -1308,6 +1352,8 @@ class external extends \external_api {
         return new \external_multiple_structure(
             new \external_single_structure([
                 'id' => new \external_value(PARAM_INT, 'Id of the user'),
+                'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
+                'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
                 'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
@@ -1331,9 +1377,9 @@ class external extends \external_api {
         $params = self::validate_call(self::get_message_form_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
-        if (!$message || !$user->can_edit_message($message)) {
-            throw new exception('errormessagenotfound');
+        $message = message::get($params['messageid']);
+        if (!$user->can_edit_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
         $options = message_data::file_options();
         $data = message_data::draft($message);
@@ -1344,9 +1390,12 @@ class external extends \external_api {
 
         $PAGE->set_url(new \moodle_url('/local/mail/view.php',  ['t' => 'drafts', 'm' => $message->id]));
         $PAGE->set_context(\context_system::instance());
-        $editor = new \MoodleQuickForm_editor('content', null, ['id' => 'local_mail_compose_editor'], $options);
+        $options['autosave'] = false;
+        $attributes = ['id' => 'local-mail-compose-editor-' . $message->id];
+        $editor = new \MoodleQuickForm_editor('content', null, $attributes, $options);
         $editor->setValue(['text' => $data->content, 'format' => $data->format, 'itemid' => $data->draftitemid]);
-        $filemanager = new \MoodleQuickForm_filemanager('attachments', null, ['id' => 'local_mail_compose_filemanager'], $options);
+        $attributes = ['id' => 'local-mail-compose-filemanager-' . $message->id];
+        $filemanager = new \MoodleQuickForm_filemanager('attachments', null, $attributes, $options);
         $filemanager->setValue($data->draftitemid);
 
         $PAGE->initialise_theme_and_output();
@@ -1383,13 +1432,16 @@ class external extends \external_api {
         $params = self::validate_call(self::create_message_parameters(), func_get_args());
 
         $user = user::current();
-        $course = course::fetch($params['courseid']);
-        if (!$course || !$user->can_use_mail($course)) {
-            throw new exception('errorcoursenotfound');
+        $course = course::get($params['courseid']);
+        if (!$user->can_use_mail($course)) {
+            throw new exception('errorcoursenotfound', $course->id);
         }
 
         $data = message_data::new($course, $user);
         $message = message::create($data);
+
+        event\draft_created::create_from_message($message)->trigger();
+
         return $message->id;
     }
 
@@ -1408,9 +1460,9 @@ class external extends \external_api {
         $params = self::validate_call(self::reply_message_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
-        if (!$message || !$user->can_view_message($message) || !$user->can_use_mail($message->course)) {
-            throw new exception('errormessagenotfound');
+        $message = message::get($params['messageid']);
+        if (!$user->can_view_message($message) || !$user->can_use_mail($message->get_course())) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         $data = message_data::reply($message, $user, $params['all']);
@@ -1432,9 +1484,9 @@ class external extends \external_api {
         $params = self::validate_call(self::forward_message_parameters(), func_get_args());
 
         $user = user::current();
-        $message = message::fetch($params['messageid']);
-        if (!$message || !$user->can_view_message($message) || !$user->can_use_mail($message->course)) {
-            throw new exception('errormessagenotfound');
+        $message = message::get($params['messageid']);
+        if (!$user->can_view_message($message) || !$user->can_use_mail($message->get_course())) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
         $data = message_data::forward($message, $user);
@@ -1467,14 +1519,14 @@ class external extends \external_api {
 
         $user = user::current();
 
-        $message = message::fetch($params['messageid']);
-        if (!$message || !$user->can_edit_message($message)) {
-            throw new exception('errormessagenotfound');
+        $message = message::get($params['messageid']);
+        if (!$user->can_edit_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
-        $course = course::fetch($params['data']['courseid']);
-        if (!$course || !$user->can_use_mail($course)) {
-            throw new exception('errorcoursenotfound');
+        $course = course::get($params['data']['courseid']);
+        if (!$user->can_use_mail($course)) {
+            throw new exception('errorcoursenotfound', $course->id);
         }
 
         $data = message_data::new($course, $user);
@@ -1484,10 +1536,12 @@ class external extends \external_api {
         $data->draftitemid = $params['data']['draftitemid'];
         foreach (['to', 'cc', 'bcc'] as $rolename) {
             if ($params['data'][$rolename]) {
-                $data->$rolename = user::fetch_many($params['data'][$rolename]);
+                $data->$rolename = user::get_many($params['data'][$rolename]);
             }
         }
         $message->update($data);
+
+        event\draft_updated::create_from_message($message)->trigger();
     }
 
     public static function update_message_returns() {
@@ -1507,20 +1561,20 @@ class external extends \external_api {
 
         $user = user::current();
 
-        $message = message::fetch($params['messageid']);
-        if (!$message || !$user->can_edit_message($message)) {
-            throw new exception('errormessagenotfound');
+        $message = message::get($params['messageid']);
+        if (!$user->can_edit_message($message)) {
+            throw new exception('errormessagenotfound', $message->id);
         }
 
-        $recipients = $message->recipients();
+        $recipients = $message->get_recipients();
 
         if (!$recipients) {
             throw new exception('erroremptyrecipients');
         }
 
-        $search = new user_search($user, $message->course);
+        $search = new user_search($user, $message->get_course());
         $search->include = array_column($recipients, 'id');
-        $validrecipients = $search->fetch();
+        $validrecipients = $search->get();
 
         foreach ($recipients as $recipient) {
             if (!isset($validrecipients[$recipient->id])) {
@@ -1539,8 +1593,10 @@ class external extends \external_api {
 
         $message->send(time());
 
+        event\message_sent::create_from_message($message)->trigger();
+
         $renderer = $PAGE->get_renderer('local_mail');
-        foreach ($message->recipients() as $recipient) {
+        foreach ($message->get_recipients() as $recipient) {
             $notificationid = message_send($renderer->notification($message, $recipient));
             if ($notificationid && get_user_preferences('local_mail_markasread', false, $recipient->id)) {
                 $message->set_unread($recipient, false);
@@ -1562,7 +1618,7 @@ class external extends \external_api {
     private static function validate_call(\external_function_parameters $description, array $args): array {
         self::validate_context(\context_system::instance());
         if (!settings::is_installed()) {
-            throw new exception('pluginnotinstalled');
+            throw new exception('errorpluginnotinstalled');
         }
         $keys = array_slice(array_keys($description->keys), 0, count($args));
         $values = array_slice($args, 0, count($description->keys));

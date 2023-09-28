@@ -1,31 +1,20 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
-use moodle_exception;
-
 defined('MOODLE_INTERNAL') || die;
 
-require_once(__DIR__ . '/../testcase.php');
+require_once(__DIR__ . '/testcase.php');
 
 /**
- * @covers \local_mail_renderer
+ * @covers \local_mail\output\renderer
  */
-class renderer_test extends testcase {
+class output_renderer_test extends testcase {
 
     public function test_file_url() {
         global $CFG, $PAGE;
@@ -57,8 +46,9 @@ class renderer_test extends testcase {
 
         $renderer = $PAGE->get_renderer('local_mail');
 
-        self::assertEquals("$CFG->wwwroot/theme/image.php/_s/boost/core/1/f/text-24", $renderer->file_icon_url($file1));
-        self::assertEquals("$CFG->wwwroot/theme/image.php/_s/boost/core/1/f/html-24", $renderer->file_icon_url($file2));
+        $size = $CFG->branch >= 403 ? null : 24; // Size is deprecated since Moodle 4.3.
+        self::assertEquals($renderer->image_url(file_extension_icon('file1.txt', $size)), $renderer->file_icon_url($file1));
+        self::assertEquals($renderer->image_url(file_extension_icon('file2.html', $size)), $renderer->file_icon_url($file2));
     }
 
     public function test_formatted_time() {
@@ -133,7 +123,7 @@ class renderer_test extends testcase {
         self::assertEquals('mail', $notification->name);
         self::assertEquals($user1->id, $notification->userfrom);
         self::assertEquals($user2->id, $notification->userto);
-        self::assertEquals(get_string('notificationsubject', 'local_mail', $SITE->shortname), $notification->subject);
+        self::assertEquals(output\strings::get('notificationsubject', $SITE->shortname), $notification->subject);
         self::assertStringContainsString($url->out(false), $notification->fullmessage);
         self::assertStringContainsString($course->fullname, $notification->fullmessage);
         self::assertStringContainsString($user1->fullname(), $notification->fullmessage);
@@ -154,8 +144,8 @@ class renderer_test extends testcase {
         self::assertStringContainsString('file2.html', $notification->fullmessagehtml);
         self::assertEquals(1, $notification->notification);
         $a = ['user' => $user1->fullname(), 'course' => $course->fullname];
-        self::assertEquals(get_string('notificationsmallmessage', 'local_mail', $a), $notification->smallmessage);
-        $contexturl = new \moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id));
+        self::assertEquals(output\strings::get('notificationsmallmessage', $a), $notification->smallmessage);
+        $contexturl = new \moodle_url('/local/mail/view.php', ['t' => 'inbox', 'm' => $message->id]);
         self::assertEquals($contexturl->out(false), $notification->contexturl);
         self::assertEquals('Subject', $notification->contexturlname);
     }
@@ -192,9 +182,9 @@ class renderer_test extends testcase {
 
         try {
             $renderer->svelte_script('src/inexistent.ts');
-            $this->fail();
-        } catch (moodle_exception $e) {
-            $this->assertEquals('codingerror', $e->errorcode);
+            self::fail();
+        } catch (\moodle_exception $e) {
+            self::assertEquals('codingerror', $e->errorcode);
         }
 
         // Developement server.

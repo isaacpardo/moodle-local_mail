@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -30,9 +35,9 @@
         tray == 'inbox'
             ? $store.strings.inbox
             : tray == 'starred'
-            ? $store.strings.starredmail
+            ? $store.strings.starredplural
             : tray == 'sent'
-            ? $store.strings.sentmail
+            ? $store.strings.sentplural
             : tray == 'drafts'
             ? $store.strings.drafts
             : tray == 'trash'
@@ -64,7 +69,13 @@
     afterUpdate(() => {
         if (prevNavigationId != $store.navigationId) {
             prevNavigationId = $store.navigationId;
-            viewNode.scrollIntoView();
+            let parent = viewNode.parentElement;
+            while (parent) {
+                if (parent.scrollTop > 0) {
+                    parent.scrollTo({ top: 0 });
+                }
+                parent = parent.parentElement;
+            }
         }
     });
 
@@ -109,7 +120,7 @@
 </svelte:head>
 
 <div
-    class="local-mail-view container-fluid pt-2"
+    class="local-mail local-mail-view container-fluid pt-2"
     class:p-4={!$store.mobile}
     class:local-mail-loading={$store.loading}
     bind:this={viewNode}
@@ -121,27 +132,28 @@
         {:else}
             <h1 class="h2 local-mail-view-side-column text-truncate mb-4">
                 {$store.strings.pluginname}
-                {#if $store.viewportSize < ViewportSize.LG}
+                {#if heading && $store.viewportSize < ViewportSize.LG}
                     <i class="fa fa-angle-right mx-1" aria-hidden="true" />
                     {heading}
                 {/if}
             </h1>
         {/if}
 
-        <div class="local-mail-view-main-column d-flex mb-4">
+        <div
+            class="local-mail-view-main-column d-flex mb-3"
+            class:mb-4={$store.viewportSize >= ViewportSize.LG}
+        >
             {#if tray}
                 <div class="local-mail-view-search">
                     <SearchBox {store} />
                 </div>
             {/if}
             {#if $store.viewportSize < ViewportSize.LG}
-                <div class="text-truncate d-flex">
-                    <ComposeButton
-                        strings={$store.strings}
-                        iconOnly={tray && $store.viewportSize < ViewportSize.SM}
-                        onClick={() => store.createMessage()}
-                    />
-                </div>
+                <ComposeButton
+                    strings={$store.strings}
+                    iconOnly={tray && $store.viewportSize < ViewportSize.SM}
+                    onClick={() => store.createMessage()}
+                />
                 {#if !tray}
                     <div class="ml-auto">
                         <PreferencesButton
@@ -177,12 +189,11 @@
                 <Menu
                     settings={$store.settings}
                     strings={$store.strings}
-                    unread={$store.unread}
-                    drafts={$store.drafts}
                     courses={$store.courses}
                     labels={$store.labels}
                     params={$store.params}
-                    onClick={(params) => store.navigate(params)}
+                    onClick={store.navigate}
+                    onCourseChange={store.selectCourse}
                 />
             </div>
         {/if}
@@ -213,60 +224,9 @@
     <ErrorModal {store} />
 </div>
 
-<style>
-    :global(#page-local-mail-view #topofscroll) {
-        padding: 0;
-        margin-bottom: 0;
-    }
-    :global(#page-local-mail-view #region-main-box) {
-        padding-left: 0;
-        padding-right: 0;
-    }
-
-    :global(#page-local-mail-view #page-header) {
-        display: none;
-    }
-
-    :global(#page-local-mail-view #page.drawers) {
-        padding-left: 0;
-        padding-right: 0;
-    }
-
-    :global(#page-local-mail-view #page.drawers .main-inner) {
-        margin-top: 0;
-    }
-
-    :global(#page-local-mail-view .btn-footer-popover) {
-        position: static;
-        margin: 0 2rem 2rem auto;
-    }
-
-    .local-mail-view :global(.dropdown-menu) {
-        z-index: 1040;
-        box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .local-mail-view :global(.dropdown-menu),
-    .local-mail-view :global(.dropdown-menu .list-group-item),
-    .local-mail-view :global(.dropdown-menu .form-control) {
-        background-color: var(--light);
-    }
-
-    .local-mail-view :global(.dropdown-item:not(:focus):hover) {
-        color: inherit;
-        background-color: #eee;
-    }
-
+<style global>
     .local-mail-view {
         max-width: 100rem;
-    }
-
-    .local-mail-view :global(.fa) {
-        font-size: 16px;
-    }
-
-    .local-mail-view :global(.form-control) {
-        font-size: 1rem !important;
     }
 
     .local-mail-view-main-column {
@@ -291,7 +251,7 @@
         margin-right: auto;
     }
 
-    .local-mail-loading :global(*) {
+    .local-mail-loading * {
         cursor: wait;
     }
 

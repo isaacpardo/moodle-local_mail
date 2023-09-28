@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -80,10 +71,11 @@ function main() {
     $admin = null;
     $adminname = trim(cli_input("Name of a user that will receive all mail as BCC [none]", ''));
     if ($adminname) {
-        $admin = user::fetch($DB->get_field('user', 'id', ['username' => $adminname]));
+        $admin = \core_user::get_user_by_username($adminname);
         if (!$admin) {
             cli_error('User not found.');
         }
+        $admin = new user($admin);
     }
     cli_writeln('');
 
@@ -96,7 +88,7 @@ function main() {
     $starttime = time();
 
     $fs = get_file_storage();
-    $courses = course::fetch_many(array_keys(get_courses('all', 'c.sortorder', 'c.id')));
+    $courses = course::get_many(array_keys(get_courses('all', 'c.sortorder', 'c.id')), IGNORE_MISSING);
 
     delete_messages($courses);
     generate_user_labels();
@@ -115,7 +107,7 @@ function delete_messages(array $courses) {
         print_progress("Deleting course mail", count($courses));
 
         $transaction = $DB->start_delegated_transaction();
-        message::delete_course($course->context());
+        message::delete_course($course->get_context());
         $transaction->allow_commit();
     }
 }
@@ -182,7 +174,7 @@ function add_random_recipients(message_data $data, array $users): void {
 function generate_course_messages(\file_storage $fs, course $course, ?user $admin, int $countperuser): void {
     global $DB;
 
-    $users = user::fetch_many(array_keys(get_enrolled_users($course->context())));
+    $users = user::get_many(array_keys(get_enrolled_users($course->get_context())));
     if (count($users) < 2) {
         return;
     }
@@ -230,7 +222,7 @@ function generate_course_messages(\file_storage $fs, course $course, ?user $admi
 }
 
 function generate_random_forward(\file_storage $fs, message $message, array $users, int $time): message_data {
-    $sender = random_item($message->recipients(message::ROLE_TO, message::ROLE_CC));
+    $sender = random_item($message->get_recipients(message::ROLE_TO, message::ROLE_CC));
     $data = message_data::forward($message, $sender);
     $data->time = $time;
 
@@ -253,7 +245,7 @@ function generate_random_message(\file_storage $fs, course $course, array $users
 }
 
 function generate_random_reply(\file_storage $fs, message $message, int $time): message_data {
-    $sender = random_item($message->recipients(message::ROLE_TO, message::ROLE_CC));
+    $sender = random_item($message->get_recipients(message::ROLE_TO, message::ROLE_CC));
     $all = random_bool(REPLY_ALL_FREQ);
     $data = message_data::reply($message, $sender, $all);
     $data->content = random_content();
@@ -268,13 +260,13 @@ function generate_user_labels() {
     global $DB;
 
     $records = $DB->get_records('user', null, '', 'id');
-    $users = user::fetch_many(array_keys($records));
+    $users = user::get_many(array_keys($records), IGNORE_MISSING);
 
     foreach ($users as $user) {
         print_progress('Generating user labels', count($users));
 
         $transaction = $DB->start_delegated_transaction();
-        foreach (label::fetch_by_user($user) as $label) {
+        foreach (label::get_by_user($user) as $label) {
             $label->delete();
         }
         $n = random_count(0, LABELS_PER_USER_EX, LABELS_PER_USER_SD);
@@ -393,18 +385,18 @@ function random_word($capitalize = false): string {
 
 function set_random_deleted(message $message): void {
     if (!$message->draft) {
-        $message->set_deleted($message->sender(), random_bool(DELETED_FREQ));
-        foreach ($message->recipients() as $user) {
+        $message->set_deleted($message->get_sender(), random_bool(DELETED_FREQ));
+        foreach ($message->get_recipients() as $user) {
             $message->set_deleted($user, random_bool(DELETED_FREQ));
         }
     }
 }
 
 function set_random_labels(message $message): void {
-    $users = array_merge([$message->sender()], $message->recipients());
+    $users = array_merge([$message->get_sender()], $message->get_recipients());
     foreach ($users as $user) {
-        if (!$message->draft || $user->id == $message->sender()->id) {
-            $labels = label::fetch_by_user($user);
+        if (!$message->draft || $user->id == $message->get_sender()->id) {
+            $labels = label::get_by_user($user);
             shuffle($labels);
             $count = random_count(0, MESSAGE_LABEL_EX, MESSAGE_LABEL_SD);
             $message->set_labels($user, array_slice($labels, 0, $count));
@@ -413,9 +405,9 @@ function set_random_labels(message $message): void {
 }
 
 function set_random_starred(message $message): void {
-    $message->set_starred($message->sender(), random_bool(STARRED_FREQ));
+    $message->set_starred($message->get_sender(), random_bool(STARRED_FREQ));
     if (!$message->draft) {
-        foreach ($message->recipients() as $user) {
+        foreach ($message->get_recipients() as $user) {
             $message->set_starred($user, random_bool(STARRED_FREQ));
         }
     }
@@ -424,7 +416,7 @@ function set_random_starred(message $message): void {
 function set_random_unread(message $message, int $starttime, int $endtime): void {
     if (!$message->draft) {
         $freq = pow(($message->time - $starttime) / ($endtime - $starttime), UNREAD_FREQ_EXP);
-        foreach ($message->recipients() as $user) {
+        foreach ($message->get_recipients() as $user) {
             $message->set_unread($user, random_bool($freq));
         }
     }

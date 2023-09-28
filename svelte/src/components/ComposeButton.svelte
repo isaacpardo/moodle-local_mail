@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -11,6 +16,7 @@
 <button
     type="button"
     class="btn btn-primary text-truncate px-2 px-sm-3"
+    class:flex-shrink-0={iconOnly}
     aria-label={strings.compose}
     on:click={onClick}
 >

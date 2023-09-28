@@ -1,27 +1,15 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
-/**
- * @package    local-mail
- * @copyright  Albert Gasset <albert.gasset@gmail.com>
- * @copyright  Marc Català <reskit@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+/*
+ * SPDX-FileCopyrightText: 2012-2013 Institut Obert de Catalunya <https://ioc.gencat.cat>
+ * SPDX-FileCopyrightText: 2014-2021 Marc Català <reskit@gmail.com>
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 namespace local_mail;
+
+use local_mail\event\message_base;
 
 abstract class testcase extends \advanced_testcase {
 
@@ -42,7 +30,7 @@ abstract class testcase extends \advanced_testcase {
      */
     protected static function assert_attachments(array $expected, message $message) {
         $fs = get_file_storage();
-        $contextid = $message->course->context()->id;
+        $contextid = $message->get_course()->get_context()->id;
         $files = $fs->get_area_files($contextid, 'local_mail', 'message', $message->id, 'id', false);
         $actual = [];
         foreach ($files as $file) {
@@ -70,7 +58,6 @@ abstract class testcase extends \advanced_testcase {
         self::assertEquals($expected, $actual);
     }
 
-
     /**
      * Asserts that a message is stored correctly in the database.
      *
@@ -81,7 +68,7 @@ abstract class testcase extends \advanced_testcase {
         self::assert_record_data('messages', [
             'id' => $message->id,
         ], [
-            'courseid' => $message->course->id ?? 0,
+            'courseid' => $message->courseid,
             'subject' => $message->subject,
             'content' => $message->content,
             'format' => $message->format,
@@ -92,18 +79,18 @@ abstract class testcase extends \advanced_testcase {
             'normalizedcontent' => message::normalize_text($message->content),
         ]);
 
-        $numusers = count($message->recipients()) + 1;
+        $numusers = count($message->get_recipients()) + 1;
         self::assert_record_count($numusers, 'message_users', ['messageid' => $message->id]);
 
-        $numlabels = count($message->labels($message->sender()));
-        foreach ($message->recipients() as $user) {
-            $numlabels += count($message->labels($user));
+        $numlabels = count($message->get_labels($message->get_sender()));
+        foreach ($message->get_recipients() as $user) {
+            $numlabels += count($message->get_labels($user));
         }
         self::assert_record_count($numlabels, 'message_labels', ['messageid' => $message->id]);
 
-        foreach ([$message->sender(), ...$message->recipients()] as $user) {
+        foreach ([$message->get_sender(), ...$message->get_recipients()] as $user) {
             $data = [
-                'courseid' => $message->course->id ?? 0,
+                'courseid' => $message->courseid,
                 'draft' => (int) $message->draft,
                 'time' => $message->time,
                 'role' => $message->role($user),
@@ -113,15 +100,46 @@ abstract class testcase extends \advanced_testcase {
             ];
             self::assert_record_data('message_users', [
                 'messageid' => $message->id,
-                'userid' => $user->id
+                'userid' => $user->id,
             ], $data);
-            foreach ($message->labels($user) as $label) {
+            foreach ($message->get_labels($user) as $label) {
                 self::assert_record_data('message_labels', [
                     'messageid' => $message->id,
                     'labelid' => $label->id,
                 ], $data);
             }
         }
+    }
+
+    /**
+     * Asserts that sink eventc contains an event that matches a name and message.
+     *
+     * @param string $eventname Expected event name.
+     * @param message $message Expected Message.
+     * @param \phpunit_event_sink $sink Event sink.
+     * @throws ExpectationFailedException
+     */
+    protected static function assert_message_event(string $eventname, message $message, \phpunit_event_sink $sink): void {
+        global $USER;
+
+        $events = array_filter(
+            $sink->get_events(),
+            fn (\core\event\base $event) =>  $event->eventname != '\core\event\notification_viewed'
+        );
+
+        self::assertEquals(1, count($events));
+        self::assertEquals($eventname, $events[0]->eventname);
+        self::assertEquals($USER->id, $events[0]->userid);
+        self::assertEquals($message->id, $events[0]->objectid);
+        if ($message->draft) {
+            self::assertEquals(0, $events[0]->courseid);
+            self::assertEquals(\context_user::instance($USER->id)->id, $events[0]->contextid);
+        } else {
+            self::assertEquals($message->courseid, $events[0]->courseid);
+            self::assertEquals($message->get_course()->get_context()->id, $events[0]->contextid);
+        }
+
+        $sink->close();
     }
 
     /**

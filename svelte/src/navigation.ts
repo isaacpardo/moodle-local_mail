@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import Navbar from './components/Navbar.svelte';
 import UserListSendButton from './components/UserListSendButton.svelte';
 import UserProfileSendButton from './components/UserProfileSendButton.svelte';
@@ -36,20 +42,22 @@ function initNavbar(data: Record<string, unknown>) {
         // Remove fallback link created in local_mail_render_navbar_output.
         target.innerHTML = '';
 
-        new Navbar({
+        const navbar = new Navbar({
             target,
             props: {
                 settings: data.settings as Settings,
                 strings: data.strings as Strings,
-                unread: data.unread as number,
-                drafts: data.drafts as number,
                 courses: data.courses as Course[],
                 labels: data.labels as Label[],
+                params: { courseid: data.courseid as number },
                 onClick: (params: ViewParams) => {
                     window.location.href = viewUrl(params);
                 },
                 onComposeClick: (courseid: number) => {
                     window.location.href = createUrl(courseid);
+                },
+                onCourseChange: (courseid?: number) => {
+                    navbar.$set({ params: { courseid } });
                 },
             },
         });

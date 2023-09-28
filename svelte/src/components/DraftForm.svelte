@@ -1,8 +1,13 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import { onDestroy, onMount, tick } from 'svelte';
-    import { require, type CoreFragment } from '../lib/amd';
+    import { onMount, tick } from 'svelte';
+    import { require, type CoreFragment, type EditorTinyLoader, type TinyMCE } from '../lib/amd';
     import {
         ViewportSize,
         type Message,
@@ -35,11 +40,45 @@
 
     onMount(() => {
         formNode?.addEventListener('core_form/uploadChanged', () => save(false));
+        const disableTinyEventHandlers = enableTinyEventHandlers();
+
+        return () => {
+            jsNode?.remove();
+            disableTinyEventHandlers();
+        };
     });
 
-    onDestroy(() => {
-        jsNode?.remove();
-    });
+    const enableTinyEventHandlers = () => {
+        let tiny: TinyMCE.TinyMCE | undefined;
+        let tinyEditor: TinyMCE.Editor | undefined;
+
+        const handleChange = () => {
+            tinyEditor?.save();
+            save(false);
+        };
+
+        const handleEditor = (event: { editor: TinyMCE.Editor }) => {
+            if (event.editor.id == `local-mail-compose-editor-${message.id}`) {
+                tinyEditor?.off('input', handleChange);
+                tinyEditor?.off('ExecCommand', handleChange);
+                tinyEditor = event.editor;
+                event.editor.on('input', handleChange);
+                event.editor.on('ExecCommand', handleChange);
+            }
+        };
+
+        require('editor_tiny/loader').then(async (loader) => {
+            tiny = await (loader as EditorTinyLoader).getTinyMCE();
+            tiny.EditorManager.get().forEach((editor) => handleEditor({ editor }));
+            tiny.EditorManager.on('SetupEditor', handleEditor);
+        });
+
+        return () => {
+            tiny?.EditorManager.off('SetupEditor', handleEditor);
+            tinyEditor?.off('input', handleChange);
+            tinyEditor?.off('ExecCommand', handleChange);
+        };
+    };
 
     const updateJavascript = async (javascript: string) => {
         const fragment = (await require('core/fragment')) as CoreFragment;
@@ -115,11 +154,14 @@
     <div class="row">
         <div class="form-group col-12 col-xl-5">
             <CourseSelect
-                {store}
+                settings={$store.settings}
+                strings={$store.strings}
+                courses={$store.courses}
                 label={$store.strings.course}
                 selected={course.id}
                 required={true}
                 readonly={message.references.length > 0}
+                style="filter-left"
                 onChange={handleCourseChange}
             />
         </div>
@@ -189,6 +231,6 @@
         {$store.strings.references}
     </div>
     {#each message.references as reference (reference.id)}
-        <MessageReference {reference} />
+        <MessageReference strings={$store.strings} {reference} />
     {/each}
 {/if}

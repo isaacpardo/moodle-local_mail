@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -28,8 +19,8 @@ class observer_test extends testcase {
 
     public function test_course_deleted() {
         list($users, $messages) = message_search_test::generate_data();
-        $course = $messages[0]->course;
-        $context = $course->context();
+        $course = $messages[0]->get_course();
+        $context = $course->get_context();
 
         $fs = get_file_storage();
 
@@ -39,7 +30,7 @@ class observer_test extends testcase {
         self::assert_record_count(0, 'message_users', ['courseid' => $course->id]);
         self::assert_record_count(0, 'message_labels', ['courseid' => $course->id]);
         foreach ($messages as $message) {
-            if ($message->course->id == $course->id) {
+            if ($message->courseid == $course->id) {
                 self::assert_record_count(0, 'message_refs', ['messageid' => $message->id]);
                 self::assert_record_count(0, 'message_refs', ['reference' => $message->id]);
             } else {

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -15,7 +20,7 @@
     <i class="fa fa fa-fw fa-arrow-left" />
 </button>
 
-<style>
+<style global>
     .local-mail-back-button {
         margin-right: 13px;
     }

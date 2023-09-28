@@ -1,22 +1,13 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2017 Albert Gasset <albertgasset@fsfe.org>
+ * SPDX-FileCopyrightText: 2021 Marc Català <reskit@gmail.com>
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
-
-use invalid_parameter_exception;
 
 defined('MOODLE_INTERNAL') || die;
 
@@ -26,6 +17,7 @@ require_once(__DIR__ . '/user_search_test.php');
 
 /**
  * @covers \local_mail\external
+ * @runTestsInSeparateProcesses
  */
 class external_test extends testcase {
 
@@ -81,7 +73,7 @@ class external_test extends testcase {
                 ],
             ],
         ];
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
 
         // Default settings.
 
@@ -124,16 +116,16 @@ class external_test extends testcase {
         $result = external::get_settings();
 
         external::validate_parameters(external::get_settings_returns(), $result);
-        $this->assertEquals([], $result['globaltrays']);
+        self::assertEquals([], $result['globaltrays']);
 
         // Plugin not installed.
 
         unset_config('version', 'local_mail');
         try {
             external::get_settings();
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('pluginnotinstalled', $e->errorcode);
+            self::assertEquals('errorpluginnotinstalled', $e->errorcode);
         }
     }
 
@@ -144,12 +136,12 @@ class external_test extends testcase {
         $user = $generator->create_user();
         $this->setUser($user);
 
-        make_writable_directory("$CFG->langlocalroot/en_local");
+        make_writable_directory("$CFG->langlocalroot/es_local");
         $content = "<?php
             defined('MOODLE_INTERNAL') || die();
-            \$string['forward'] = 'Share';
+            \$string['forward'] = 'Compartir';
         ";
-        file_put_contents("$CFG->langlocalroot/en_local/local_mail.php", $content);
+        file_put_contents("$CFG->langlocalroot/es_local/local_mail.php", $content);
 
         make_writable_directory("$CFG->langlocalroot/ca_local");
         $content = "<?php
@@ -158,23 +150,25 @@ class external_test extends testcase {
         ";
         file_put_contents("$CFG->langlocalroot/ca_local/local_mail.php", $content);
 
-        // English.
+        // Spanish.
+
+        $SESSION->forcelang = 'es';
 
         $result = external::get_strings();
 
         external::validate_parameters(external::get_strings_returns(), $result);
-        $this->assertEquals(external::get_strings_raw(), $result);
-        $this->assertEquals('Share', $result['forward']);
+        self::assertEquals(output\strings::get_all(), $result);
+        self::assertEquals('Compartir', $result['forward']);
 
         // Catalan.
 
-        $SESSION->lang = 'ca';
+        $SESSION->forcelang = 'ca';
 
         $result = external::get_strings();
 
         external::validate_parameters(external::get_strings_returns(), $result);
-        $this->assertEquals(external::get_strings_raw(), $result);
-        $this->assertEquals('Comparteix', $result['forward']);
+        self::assertEquals(output\strings::get_all(), $result);
+        self::assertEquals('Comparteix', $result['forward']);
     }
 
     public function test_get_preferences() {
@@ -195,7 +189,7 @@ class external_test extends testcase {
             'markasread' => true,
             'notifications' => ['popup'],
         ];
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
 
         // Default preferences.
 
@@ -212,7 +206,7 @@ class external_test extends testcase {
             'markasread' => false,
             'notifications' => ['email'],
         ];
-        $this->assertEquals($expected, $result);
+        self::assertEquals($expected, $result);
 
         // Invalid perpage preference.
 
@@ -221,14 +215,14 @@ class external_test extends testcase {
         $result = external::get_preferences();
 
         external::validate_parameters(external::get_preferencs_returns(), $result);
-        $this->assertEquals(5, $result['perpage']);
+        self::assertEquals(5, $result['perpage']);
 
         set_user_preference('local_mail_mailsperpage', 101);
 
         $result = external::get_preferences();
 
         external::validate_parameters(external::get_preferencs_returns(), $result);
-        $this->assertEquals(100, $result['perpage']);
+        self::assertEquals(100, $result['perpage']);
     }
 
     public function test_set_preferences() {
@@ -243,46 +237,46 @@ class external_test extends testcase {
         $result = external::set_preferences([
             'perpage' => '20',
             'markasread' => true,
-            'notifications' => ['email']
+            'notifications' => ['email'],
         ]);
 
-        $this->assertNull(external::set_preferences_returns());
-        $this->assertNull($result);
-        $this->assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
-        $this->assertEquals('1', get_user_preferences('local_mail_markasread'));
-        $this->assertEquals('email', get_user_preferences('message_provider_local_mail_mail_enabled'));
+        self::assertNull(external::set_preferences_returns());
+        self::assertNull($result);
+        self::assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
+        self::assertEquals('1', get_user_preferences('local_mail_markasread'));
+        self::assertEquals('email', get_user_preferences('message_provider_local_mail_mail_enabled'));
 
         // Optional preferences.
 
         $result = external::set_preferences([]);
 
-        $this->assertNull($result);
-        $this->assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
-        $this->assertEquals('1', get_user_preferences('local_mail_markasread'));
+        self::assertNull($result);
+        self::assertEquals('20', get_user_preferences('local_mail_mailsperpage'));
+        self::assertEquals('1', get_user_preferences('local_mail_markasread'));
 
         // Invalid perpage.
 
         try {
             external::set_preferences(['perpage' => '4']);
-            $this->fail();
+            self::fail();
         } catch (\invalid_parameter_exception $e) {
-            $this->assertEquals('"perpage" must be between 5 and 100', $e->debuginfo);
+            self::assertEquals('"perpage" must be between 5 and 100', $e->debuginfo);
         }
 
         try {
             external::set_preferences(['perpage' => '101']);
-            $this->fail();
+            self::fail();
         } catch (\invalid_parameter_exception $e) {
-            $this->assertEquals('"perpage" must be between 5 and 100', $e->debuginfo);
+            self::assertEquals('"perpage" must be between 5 and 100', $e->debuginfo);
         }
 
         // Invalid processor name.
 
         try {
             $result = external::set_preferences(['notifications' => ['invalud']]);
-            $this->fail();
+            self::fail();
         } catch (\invalid_parameter_exception $e) {
-            $this->assertEquals('"notifications" must contain message processor names', $e->debuginfo);
+            self::assertEquals('"notifications" must contain message processor names', $e->debuginfo);
         }
     }
 
@@ -293,30 +287,37 @@ class external_test extends testcase {
         foreach ($users as $user) {
             $this->setUser($user->id);
             $expected = [];
-            foreach (course::fetch_by_user($user) as $course) {
+            foreach (course::get_by_user($user) as $course) {
                 $search = new message_search($user);
                 $search->course = $course;
                 $search->roles = [message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC];
                 $search->unread = true;
+                $unread = $search->count();
+                $search = new message_search($user);
+                $search->course = $course;
+                $search->roles = [message::ROLE_FROM];
+                $search->draft = true;
+                $drafts = $search->count();
                 $expected[] = [
                     'id' => $course->id,
                     'shortname' => $course->shortname,
                     'fullname' => $course->fullname,
                     'visible' => $course->visible,
                     'groupmode' => $course->groupmode,
-                    'unread' => $search->count(),
+                    'unread' => $unread,
+                    'drafts' => $drafts,
                 ];
             }
             $result = external::get_courses();
             external::validate_parameters(external::get_courses_returns(), $result);
-            $this->assertEquals($expected, $result);
+            self::assertEquals($expected, $result);
         }
 
         // User with no courses.
 
         $user = new user($generator->create_user());
         $this->setUser($user->id);
-        $this->assertEquals([], external::get_courses());
+        self::assertEquals([], external::get_courses());
     }
 
     public function test_get_labels() {
@@ -327,28 +328,33 @@ class external_test extends testcase {
             $this->setUser($user->id);
 
             $expected = [];
-            foreach (label::fetch_by_user($user) as $label) {
+            foreach (label::get_by_user($user) as $label) {
                 $search = new message_search($user);
                 $search->label = $label;
                 $search->roles = [message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC];
                 $search->unread = true;
-                $expected[] = [
+                $expectedlabel = [
                     'id' => $label->id,
                     'name' => $label->name,
                     'color' => $label->color,
                     'unread' => $search->count(),
+                    'courses' => [],
                 ];
+                foreach ($search->count_per_course() as $id => $unread) {
+                    $expectedlabel['courses'][] = ['id' => $id, 'unread' => $unread];
+                }
+                $expected[] = $expectedlabel;
             }
             $result = external::get_labels();
             external::validate_parameters(external::get_labels_returns(), $result);
-            $this->assertEquals($expected, $result);
+            self::assertEquals($expected, $result);
         }
 
         // User with no labels.
 
         $user = new user($generator->create_user());
         $this->setUser($user->id);
-        $this->assertEquals([], external::get_labels());
+        self::assertEquals([], external::get_labels());
     }
 
     public function test_count_messages() {
@@ -371,7 +377,7 @@ class external_test extends testcase {
             if ($search->roles) {
                 $query['roles'] = [];
                 foreach ($search->roles as $role) {
-                    $query['roles'][] = external::ROLES[$role];
+                    $query['roles'][] = message::role_names()[$role];
                 }
             }
             if ($search->unread !== null) {
@@ -410,7 +416,7 @@ class external_test extends testcase {
 
             $result = external::count_messages($query);
             external::validate_parameters(external::count_messages_returns(), $result);
-            $this->assertEquals($search->count(), $result, $search);
+            self::assertEquals($search->count(), $result, $search);
         }
 
         // Invalid course.
@@ -421,18 +427,20 @@ class external_test extends testcase {
             external::count_messages($query);
             self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($query['courseid'], $e->a);
         }
 
         // Invalid label.
         self::setUser($users[0]->id);
-        $labels = label::fetch_by_user($users[1]);
+        $labels = label::get_by_user($users[1]);
         $query = ['labelid' => reset($labels)->id];
         try {
             external::count_messages($query);
             self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals($query['labelid'], $e->a);
         }
 
         // Invalid role.
@@ -441,28 +449,30 @@ class external_test extends testcase {
         try {
             external::count_messages($query);
             self::fail();
-        } catch (invalid_parameter_exception $e) {
-            $this->assertEquals('invalid role: xx', $e->debuginfo);
+        } catch (\invalid_parameter_exception $e) {
+            self::assertEquals('invalid role: xx', $e->debuginfo);
         }
 
         // Invalid startid.
         self::setUser($users[0]->id);
-        $query = ['startid' => '-1'];
+        $query = ['startid' => '123'];
         try {
             external::count_messages($query);
             self::fail();
-        } catch (invalid_parameter_exception $e) {
-            $this->assertEquals('invalid startid: -1', $e->debuginfo);
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($query['startid'], $e->a);
         }
 
         // Invalid stopid.
         self::setUser($users[0]->id);
-        $query = ['stopid' => '-1'];
+        $query = ['stopid' => '123'];
         try {
             external::count_messages($query);
             self::fail();
-        } catch (invalid_parameter_exception $e) {
-            $this->assertEquals('invalid stopid: -1', $e->debuginfo);
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($query['stopid'], $e->a);
         }
     }
 
@@ -486,7 +496,7 @@ class external_test extends testcase {
             if ($search->roles) {
                 $query['roles'] = [];
                 foreach ($search->roles as $role) {
-                    $query['roles'][] = external::ROLES[$role];
+                    $query['roles'][] = message::role_names()[$role];
                 }
             }
             if ($search->unread !== null) {
@@ -523,16 +533,16 @@ class external_test extends testcase {
                 $query['reverse'] = true;
             }
 
-            $expected = external::search_messages_response($search->user, $search->fetch());
+            $expected = external::search_messages_response($search->user, $search->get());
             $result = external::search_messages($query);
             external::validate_parameters(external::search_messages_returns(), $result);
             self::assertEquals($expected, $result, $search);
 
             // Offset and limit.
-            $expected = external::search_messages_response($search->user, $search->fetch(5, 10));
+            $expected = external::search_messages_response($search->user, $search->get(5, 10));
             $result = external::search_messages($query, 5, 10);
             external::validate_parameters(external::search_messages_returns(), $result);
-            $this->assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
+            self::assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
         }
 
         // Invalid course.
@@ -544,37 +554,41 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($query['courseid'], $e->a);
         }
 
         // Invalid label.
         self::setUser($users[0]->id);
-        $labels = label::fetch_by_user($users[1]);
+        $labels = label::get_by_user($users[1]);
         $query = ['labelid' => reset($labels)->id];
         try {
             external::search_messages($query);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals($query['labelid'], $e->a);
         }
 
         // Invalid startid.
         self::setUser($users[0]->id);
-        $query = ['startid' => '-1'];
+        $query = ['startid' => '123'];
         try {
             external::search_messages($query);
             self::fail();
-        } catch (invalid_parameter_exception $e) {
-            $this->assertEquals('invalid startid: -1', $e->debuginfo);
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($query['startid'], $e->a);
         }
 
         // Invalid stopid.
         self::setUser($users[0]->id);
-        $query = ['stopid' => '-1'];
+        $query = ['stopid' => '123'];
         try {
             external::search_messages($query);
             self::fail();
-        } catch (invalid_parameter_exception $e) {
-            $this->assertEquals('invalid stopid: -1', $e->debuginfo);
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($query['stopid'], $e->a);
         }
     }
 
@@ -623,7 +637,7 @@ class external_test extends testcase {
         $result = external::get_message($message2->id);
 
         external::validate_parameters(external::get_message_returns(), $result);
-        $this->assertEquals(external::get_message_response($user1, message::fetch($message2->id)), $result);
+        self::assertEquals(external::get_message_response($user1, message::get($message2->id)), $result);
 
         // User cannot view message.
 
@@ -633,15 +647,94 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message2->id, $e->a);
         }
 
         // Inexistent message.
 
         try {
-            external::get_message('-1');
+            external::get_message(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
+        }
+    }
+
+    public function test_view_message() {
+        $generator = self::getDataGenerator();
+        $course = new course($generator->create_course());
+        $user1 = new user($generator->create_user());
+        $user2 = new user($generator->create_user());
+        $generator->enrol_user($user1->id, $course->id);
+        $generator->enrol_user($user2->id, $course->id);
+        $time = make_timestamp(2021, 10, 11, 12, 0);
+
+        // Message from the user.
+
+        $data = message_data::new($course, $user1);
+        $data->to = [$user2];
+        $data->subject = 'Subject';
+        $message = message::create($data);
+        $message->send($time);
+        $message->set_unread($user1, true);
+        $this->setUser($user1->id);
+        $eventsink = $this->redirectEvents();
+
+        $result = external::view_message($message->id);
+
+        self::assertNull(external::view_message_returns());
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->unread($user1));
+        self::assert_message_event('\local_mail\event\message_viewed', $message, $eventsink);
+
+        // Message sent to the user.
+
+        $message->set_unread($user2, true);
+        $this->setUser($user2->id);
+        $eventsink = $this->redirectEvents();
+
+        $result = external::view_message($message->id);
+
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->unread($user2));
+        self::assert_message_event('\local_mail\event\message_viewed', $message, $eventsink);
+
+        // Draft from the user.
+
+        $data = message_data::new($course, $user1);
+        $data->to = [$user2];
+        $draft = message::create($data);
+        $draft->set_unread($user1, true);
+        $this->setUser($user1->id);
+        $eventsink = $this->redirectEvents();
+
+        $result = external::view_message($draft->id);
+
+        self::assertNull($result);
+        self::assertFalse(message::get($draft->id)->unread($user1));
+        self::assert_message_event('\local_mail\event\draft_viewed', $draft, $eventsink);
+
+        // Draft to the user (no permission).
+
+        $this->setUser($user2->id);
+
+        try {
+            external::view_message($draft->id);
+            self::fail();
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($draft->id, $e->a);
+        }
+
+        // Invalid message.
+
+        try {
+            external::view_message(123);
+            self::fail();
+        } catch (exception $e) {
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -665,28 +758,28 @@ class external_test extends testcase {
 
         $result = external::set_unread($message->id, '1');
         self::assertNull(external::set_unread_returns());
-        $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->unread($user1));
+        self::assertNull($result);
+        self::assertTrue(message::get($message->id)->unread($user1));
 
         $result = external::set_unread($message->id, '0');
-        $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread($user1));
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->unread($user1));
 
         // Message sent to the user.
 
         $this->setUser($user2->id);
 
         $result = external::set_unread($message->id, '0');
-        $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread($user2));
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->unread($user2));
 
         $result = external::set_unread($message->id, '1');
-        $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->unread($user2));
+        self::assertNull($result);
+        self::assertTrue(message::get($message->id)->unread($user2));
 
         $result = external::set_unread($message->id, '0');
-        $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->unread($user2));
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->unread($user2));
 
         // Draft to the user (no permission).
 
@@ -696,18 +789,20 @@ class external_test extends testcase {
 
         try {
             external::set_unread($draft->id, '0');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($draft->id, $e->a);
         }
 
         // Invalid message.
 
         try {
-            external::set_unread('-1', '1');
-            $this->fail();
+            external::set_unread(123, '1');
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -730,29 +825,29 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_starred($message->id, '1');
-        $this->assertNull(external::set_starred_returns());
-        $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred($user1));
+        self::assertNull(external::set_starred_returns());
+        self::assertNull($result);
+        self::assertTrue(message::get($message->id)->starred($user1));
 
         $result = external::set_starred($message->id, '0');
-        $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->starred($user1));
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->starred($user1));
 
         // Message sent to the user.
 
         $this->setUser($user2->id);
 
         $result = external::set_starred($message->id, '1');
-        $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred($user2));
+        self::assertNull($result);
+        self::assertTrue(message::get($message->id)->starred($user2));
 
         $result = external::set_starred($message->id, '0');
-        $this->assertNull($result);
-        $this->assertFalse(message::fetch($message->id)->starred($user2));
+        self::assertNull($result);
+        self::assertFalse(message::get($message->id)->starred($user2));
 
         $result = external::set_starred($message->id, '1');
-        $this->assertNull($result);
-        $this->assertTrue(message::fetch($message->id)->starred($user2));
+        self::assertNull($result);
+        self::assertTrue(message::get($message->id)->starred($user2));
 
         // Draft to the user (no permission).
 
@@ -762,18 +857,20 @@ class external_test extends testcase {
 
         try {
             external::set_starred($draft->id, '1');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($draft->id, $e->a);
         }
 
         // Invalid message.
 
         try {
-            external::set_starred('-1', '1');
-            $this->fail();
+            external::set_starred(123, '1');
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -796,23 +893,24 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_deleted($message->id, '1');
-        $this->assertNull(external::set_deleted_returns());
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted($user1));
+        self::assertNull(external::set_deleted_returns());
+        self::assertNull($result);
+        self::assertEquals(message::DELETED, message::get($message->id)->deleted($user1));
 
         $result = external::set_deleted($message->id, '0');
-        $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted($user1));
+        self::assertNull($result);
+        self::assertEquals(message::NOT_DELETED, message::get($message->id)->deleted($user1));
 
         $result = external::set_deleted($message->id, '2');
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted($user1));
+        self::assertNull($result);
+        self::assertEquals(message::DELETED_FOREVER, message::get($message->id)->deleted($user1));
 
         try {
             external::set_deleted($message->id, '0');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Message sent to the user.
@@ -820,22 +918,23 @@ class external_test extends testcase {
         $this->setUser($user2->id);
 
         $result = external::set_deleted($message->id, '1');
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($message->id)->deleted($user2));
+        self::assertNull($result);
+        self::assertEquals(message::DELETED, message::get($message->id)->deleted($user2));
 
         $result = external::set_deleted($message->id, '0');
-        $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message->id)->deleted($user2));
+        self::assertNull($result);
+        self::assertEquals(message::NOT_DELETED, message::get($message->id)->deleted($user2));
 
         $result = external::set_deleted($message->id, '2');
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message->id)->deleted($user2));
+        self::assertNull($result);
+        self::assertEquals(message::DELETED_FOREVER, message::get($message->id)->deleted($user2));
 
         try {
             external::set_deleted($message->id, '0');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Draft to the user (no permission).
@@ -848,34 +947,40 @@ class external_test extends testcase {
 
         try {
             external::set_deleted($message->id, '1');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Draft from the user.
 
         $this->setUser($user1->id);
 
+        $eventsink = $this->redirectEvents();
+
         $result = external::set_deleted($draft->id, '1');
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED, message::fetch($draft->id)->deleted($user1));
+        self::assertNull($result);
+        self::assertEquals(message::DELETED, message::get($draft->id)->deleted($user1));
 
         $result = external::set_deleted($draft->id, '0');
-        $this->assertNull($result);
-        $this->assertEquals(message::NOT_DELETED, message::fetch($draft->id)->deleted($user1));
+        self::assertNull($result);
+        self::assertEquals(message::NOT_DELETED, message::get($draft->id)->deleted($user1));
 
         $result = external::set_deleted($draft->id, '2');
-        $this->assertNull($result);
-        $this->assertNull(message::fetch($draft->id));
+        self::assertNull($result);
+        self::assertNull(message::get($draft->id, IGNORE_MISSING));
+
+        self::assert_message_event('\local_mail\event\draft_deleted', $draft, $eventsink);
 
         // Invalid message.
 
         try {
-            external::set_deleted('-1', '1');
-            $this->fail();
+            external::set_deleted(123, '1');
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -926,24 +1031,75 @@ class external_test extends testcase {
         $message5->set_deleted($user1, message::DELETED);
 
         $data6 = message_data::new($course3, $user2);
-        $data6->subject = 'Subject 5';
+        $data6->subject = 'Subject 6';
         $data6->to = [$user1];
         $message6 = message::create($data6);
         $message6->send($time);
         $message6->set_deleted($user1, message::DELETED);
 
+        $draftdata = message_data::new($course1, $user1);
+        $draftdata->subject = 'Draft';
+        $draftdata->to = [$user2];
+        $draft = message::create($draftdata);
+        $draft->set_deleted($user1, message::DELETED);
+
         $this->setUser($user1->id);
+        $eventsink = $this->redirectEvents();
 
         $result = external::empty_trash();
 
-        $this->assertNull(external::empty_trash_returns());
-        $this->assertNull($result);
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message1->id)->deleted($user1));
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message2->id)->deleted($user1));
-        $this->assertEquals(message::NOT_DELETED, message::fetch($message3->id)->deleted($user1));
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message4->id)->deleted($user1));
-        $this->assertEquals(message::DELETED_FOREVER, message::fetch($message5->id)->deleted($user1));
-        $this->assertEquals(message::DELETED, message::fetch($message6->id)->deleted($user1));
+        self::assertNull(external::empty_trash_returns());
+        self::assertNull($result);
+        self::assertEquals(message::DELETED_FOREVER, message::get($message1->id)->deleted($user1));
+        self::assertEquals(message::DELETED_FOREVER, message::get($message2->id)->deleted($user1));
+        self::assertEquals(message::NOT_DELETED, message::get($message3->id)->deleted($user1));
+        self::assertEquals(message::DELETED_FOREVER, message::get($message4->id)->deleted($user1));
+        self::assertEquals(message::DELETED_FOREVER, message::get($message5->id)->deleted($user1));
+        self::assertEquals(message::DELETED, message::get($message6->id)->deleted($user1));
+        self::assertNull(message::get($draft->id, IGNORE_MISSING));
+        self::assert_message_event('\local_mail\event\draft_deleted', $draft, $eventsink);
+
+        // Empty course trash.
+
+        $data7 = message_data::new($course1, $user2);
+        $data7->subject = 'Subject 7';
+        $data7->to = [$user1];
+        $message7 = message::create($data7);
+        $message7->send($time);
+        $message7->set_deleted($user1, message::DELETED);
+
+        $data8 = message_data::new($course2, $user2);
+        $data8->subject = 'Subject 8';
+        $data8->to = [$user1];
+        $message8 = message::create($data8);
+        $message8->send($time);
+        $message8->set_deleted($user1, message::DELETED);
+
+        $result = external::empty_trash($course1->id);
+
+        self::assertNull($result);
+        self::assertEquals(message::DELETED_FOREVER, message::get($message7->id)->deleted($user1));
+        self::assertEquals(message::DELETED, message::get($message8->id)->deleted($user1));
+
+        // User not enrolled in course.
+
+        try {
+            external::empty_trash($course3->id);
+            self::fail();
+        } catch (exception $e) {
+            self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($course3->id, $e->a);
+        }
+
+        // Inexistent course.
+
+        try {
+            external::empty_trash(123);
+            self::fail();
+        } catch (exception $e) {
+            self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
+        }
     }
 
     public function test_create_label() {
@@ -954,48 +1110,48 @@ class external_test extends testcase {
         $result = external::create_label('Label 1', 'blue');
 
         external::validate_parameters(external::create_label_returns(), $result);
-        $label = label::fetch($result);
-        $this->assertNotNull($label);
-        $this->assertEquals($user->id, $label->user->id);
-        $this->assertEquals('Label 1', $label->name);
-        $this->assertEquals('blue', $label->color);
+        $label = label::get($result);
+        self::assertNotNull($label);
+        self::assertEquals($user->id, $label->userid);
+        self::assertEquals('Label 1', $label->name);
+        self::assertEquals('blue', $label->color);
 
         // Empty color.
 
         $result = external::create_label('Label 2');
 
         external::validate_parameters(external::create_label_returns(), $result);
-        $label = label::fetch($result);
-        $this->assertNotNull($label);
-        $this->assertEquals($user->id, $label->user->id);
-        $this->assertEquals('Label 2', $label->name);
-        $this->assertEquals('', $label->color);
+        $label = label::get($result);
+        self::assertNotNull($label);
+        self::assertEquals($user->id, $label->userid);
+        self::assertEquals('Label 2', $label->name);
+        self::assertEquals('', $label->color);
 
         // Empty name.
 
         try {
             external::create_label('', 'blue');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('erroremptylabelname', $e->errorcode);
+            self::assertEquals('erroremptylabelname', $e->errorcode);
         }
 
         // Duplicated name.
 
         try {
             external::create_label('Label 1', 'blue');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorrepeatedlabelname', $e->errorcode);
+            self::assertEquals('errorrepeatedlabelname', $e->errorcode);
         }
 
         // Invalid color.
 
         try {
-            external::create_label('Label 3', 'invalid');
-            $this->fail();
-        } catch (exception $e) {
-            $this->assertEquals('errorinvalidcolor', $e->errorcode);
+            external::create_label('Label 3', 'abc');
+            self::fail();
+        } catch (\invalid_parameter_exception $e) {
+            self::assertEquals('invalid color: abc', $e->debuginfo);
         }
     }
 
@@ -1011,76 +1167,78 @@ class external_test extends testcase {
 
         $result = external::update_label($label1->id, 'Updated 1', 'green');
 
-        $this->assertNull($result);
-        $label1 = label::fetch($label1->id);
-        $this->assertEquals($user1->id, $label1->user->id);
-        $this->assertEquals('Updated 1', $label1->name);
-        $this->assertEquals('green', $label1->color);
+        self::assertNull($result);
+        $label1 = label::get($label1->id);
+        self::assertEquals($user1->id, $label1->userid);
+        self::assertEquals('Updated 1', $label1->name);
+        self::assertEquals('green', $label1->color);
 
         // Unchaged name.
 
         $result = external::update_label($label1->id, 'Updated 1', 'yellow');
 
-        $this->assertNull(external::update_label_returns());
-        $this->assertNull($result);
-        $label1 = label::fetch($label1->id);
-        $this->assertEquals($user1->id, $label1->user->id);
-        $this->assertEquals('Updated 1', $label1->name);
-        $this->assertEquals('yellow', $label1->color);
+        self::assertNull(external::update_label_returns());
+        self::assertNull($result);
+        $label1 = label::get($label1->id);
+        self::assertEquals($user1->id, $label1->userid);
+        self::assertEquals('Updated 1', $label1->name);
+        self::assertEquals('yellow', $label1->color);
 
         // Empty color.
 
         $result = external::update_label($label1->id, 'Label 1');
 
-        $this->assertNull($result);
-        $label1 = label::fetch($label1->id);
-        $this->assertEquals($user1->id, $label1->user->id);
-        $this->assertEquals('Label 1', $label1->name);
-        $this->assertEquals('', $label1->color);
+        self::assertNull($result);
+        $label1 = label::get($label1->id);
+        self::assertEquals($user1->id, $label1->userid);
+        self::assertEquals('Label 1', $label1->name);
+        self::assertEquals('', $label1->color);
 
         // Invalid label.
 
         try {
-            external::update_label('-1', 'Label 1', 'blue');
-            $this->fail();
+            external::update_label(123, 'Label 1', 'blue');
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // Label of another user.
 
         try {
             external::update_label($label3->id, 'Label 3', 'yellow');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals($label3->id, $e->a);
         }
 
         // Empty name.
 
         try {
             external::update_label($label1->id, '', 'blue');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('erroremptylabelname', $e->errorcode);
+            self::assertEquals('erroremptylabelname', $e->errorcode);
         }
 
         // Duplicated name.
 
         try {
             external::update_label($label1->id, 'Label 2', 'blue');
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorrepeatedlabelname', $e->errorcode);
+            self::assertEquals('errorrepeatedlabelname', $e->errorcode);
         }
 
         // Invalid color.
 
         try {
-            external::update_label($label1->id, 'Label 1', 'invalid');
-            $this->fail();
-        } catch (exception $e) {
-            $this->assertEquals('errorinvalidcolor', $e->errorcode);
+            external::update_label($label1->id, 'Label 1', 'abc');
+            self::fail();
+        } catch (\invalid_parameter_exception $e) {
+            self::assertEquals('invalid color: abc', $e->debuginfo);
         }
     }
 
@@ -1094,27 +1252,28 @@ class external_test extends testcase {
 
         $result = external::delete_label($label1->id);
 
-        $this->assertNull(external::delete_label_returns());
-        $this->assertNull($result);
-        $label1 = label::fetch($label1->id);
-        $this->assertNull($label1);
+        self::assertNull(external::delete_label_returns());
+        self::assertNull($result);
+        self::assertNUll(label::get($label1->id, IGNORE_MISSING));
 
         // Invalid label.
 
         try {
-            external::delete_label('-1');
-            $this->fail();
+            external::delete_label(123);
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // Label of another user.
 
         try {
             external::delete_label($label2->id);
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals($label2->id, $e->a);
         }
     }
 
@@ -1140,15 +1299,15 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
-        $this->assertNull(external::set_labels_returns());
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label1, $label2], $message->labels($user1));
+        self::assertNull(external::set_labels_returns());
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label1, $label2], $message->get_labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label2, $label3], $message->labels($user1));
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label2, $label3], $message->get_labels($user1));
 
         // Message sent to the user.
 
@@ -1159,14 +1318,14 @@ class external_test extends testcase {
         $message->send($time);
 
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label1, $label2], $message->labels($user1));
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label1, $label2], $message->get_labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label2, $label3], $message->labels($user1));
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label2, $label3], $message->get_labels($user1));
 
         // Draft from the user.
 
@@ -1175,14 +1334,14 @@ class external_test extends testcase {
         $message = message::create($data);
 
         $result = external::set_labels($message->id, [$label1->id, $label2->id]);
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label1, $label2], $message->labels($user1));
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label1, $label2], $message->get_labels($user1));
 
         $result = external::set_labels($message->id, [$label2->id, $label3->id]);
-        $this->assertNull($result);
-        $message = message::fetch($message->id);
-        $this->assertEquals([$label2, $label3], $message->labels($user1));
+        self::assertNull($result);
+        $message = message::get($message->id);
+        self::assertEquals([$label2, $label3], $message->get_labels($user1));
 
         // Draft to the user (no permission).
 
@@ -1193,9 +1352,10 @@ class external_test extends testcase {
 
         try {
             $result = external::set_labels($message->id, [$label1->id, $label2->id]);
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Label of another user.
@@ -1207,9 +1367,10 @@ class external_test extends testcase {
         $message->send($time);
         try {
             external::set_labels($message->id, [$label4->id]);
-            $this->fail();
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals($label4->id, $e->a);
         }
 
         // Invalid label.
@@ -1220,19 +1381,21 @@ class external_test extends testcase {
         $message = message::create($data);
         $message->send($time);
         try {
-            external::set_labels($message->id, ['-1']);
-            $this->fail();
+            external::set_labels($message->id, [123]);
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals('errorlabelnotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // Invalid message.
 
         try {
-            external::set_labels('-1', ['1']);
-            $this->fail();
+            external::set_labels(123, ['1']);
+            self::fail();
         } catch (exception $e) {
-            $this->assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -1259,15 +1422,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($course->id, $e->a);
         }
 
         // Inexistent course.
 
         try {
-            external::get_roles(0);
+            external::get_roles(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -1299,15 +1464,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($course->id, $e->a);
         }
 
         // Inexistent course.
 
         try {
-            external::get_groups(0);
+            external::get_groups(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -1331,17 +1498,17 @@ class external_test extends testcase {
                 $query['include'] = $search->include;
             }
 
-            $expected = external::search_users_response($search->course, $search->fetch());
+            $expected = external::search_users_response($search->course, $search->get());
             $result = external::search_users($query);
             external::validate_parameters(external::search_users_returns(), $result);
             self::assertEquals($expected, $result, $search);
 
             // Offset and limit.
 
-            $expected = external::search_users_response($search->course, $search->fetch(5, 10));
+            $expected = external::search_users_response($search->course, $search->get(5, 10));
             $result = external::search_users($query, 5, 10);
             external::validate_parameters(external::search_users_returns(), $result);
-            $this->assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
+            self::assertEquals($expected, $result, $search . "\noffset: 5\n limit: 10");
         }
 
         // User not enrolled in course.
@@ -1353,16 +1520,18 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($query['courseid'], $e->a);
         }
 
         // Inexistent course.
 
-        $query = ['courseid' => 0];
+        $query = ['courseid' => 123];
         try {
             external::search_users($query);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($query['courseid'], $e->a);
         }
     }
 
@@ -1416,10 +1585,11 @@ class external_test extends testcase {
         // Inexistent message.
 
         try {
-            external::get_message_form(0);
+            external::get_message_form(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // Non-editable message.
@@ -1430,6 +1600,7 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
     }
 
@@ -1440,19 +1611,22 @@ class external_test extends testcase {
         $generator->enrol_user($user->id, $course->id);
         $now = time();
         self::setUser($user->id);
+        $eventsink = $this->redirectEvents();
 
         $result = external::create_message($course->id);
 
         external::validate_parameters(external::create_message_returns(), $result);
-        $draft = message::fetch($result);
+        $draft = message::get($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
-        self::assertEquals($course, $draft->course);
+        self::assertEquals($course, $draft->get_course());
         self::assertEquals('', $draft->subject);
         self::assertEquals('', $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals($user->id, $draft->sender()->id);
+        self::assertEquals($user->id, $draft->get_sender()->id);
         self::assertGreaterThanOrEqual($now, $draft->time);
+
+        self::assert_message_event('\local_mail\event\draft_created', $draft, $eventsink);
 
         // User not enrolled in course.
 
@@ -1462,15 +1636,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($course->id, $e->a);
         }
 
         // Inexistent course.
 
         try {
-            external::create_message(0);
+            external::create_message(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
     }
 
@@ -1505,19 +1681,19 @@ class external_test extends testcase {
         $result = external::reply_message($message->id, false);
 
         external::validate_parameters(external::reply_message_returns(), $result);
-        $draft = message::fetch($result);
+        $draft = message::get($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
-        self::assertEquals($data->course, $draft->course);
+        self::assertEquals($data->course, $draft->get_course());
         self::assertEquals('RE: ' . $data->subject, $draft->subject);
         self::assertEquals('', $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals($user2, $draft->sender());
-        self::assertEqualsCanonicalizing([$user1], $draft->recipients(message::ROLE_TO));
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_CC));
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
+        self::assertEquals($user2, $draft->get_sender());
+        self::assertEqualsCanonicalizing([$user1], $draft->get_recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_BCC));
         self::assertGreaterThanOrEqual($now, $draft->time);
-        self::assertEquals([$message->id => $message], $draft->fetch_references());
+        self::assertEquals([$message->id => $message], $draft->get_references());
         self::assert_attachments([], $draft);
 
         // Reply to all.
@@ -1525,12 +1701,12 @@ class external_test extends testcase {
         $result = external::reply_message($message->id, true);
 
         external::validate_parameters(external::reply_message_returns(), $result);
-        $draft = message::fetch($result);
+        $draft = message::get($result);
         self::assertNotNull($draft);
-        self::assertEquals($user2, $draft->sender());
-        self::assertEqualsCanonicalizing([$user1], $draft->recipients(message::ROLE_TO));
-        self::assertEqualsCanonicalizing([$user3, $user4], $draft->recipients(message::ROLE_CC));
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
+        self::assertEquals($user2, $draft->get_sender());
+        self::assertEqualsCanonicalizing([$user1], $draft->get_recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([$user3, $user4], $draft->get_recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_BCC));
 
         // User cannot view message.
 
@@ -1545,15 +1721,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Inexistent message.
 
         try {
-            external::reply_message(0, false);
+            external::reply_message(123, false);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // User not enrolled in course.
@@ -1569,6 +1747,7 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
     }
 
@@ -1597,30 +1776,30 @@ class external_test extends testcase {
         $result = external::forward_message($message->id);
 
         external::validate_parameters(external::forward_message_returns(), $result);
-        $draft = message::fetch($result);
+        $draft = message::get($result);
         self::assertNotNull($draft);
         self::assertTrue($draft->draft);
-        self::assertEquals($data->course, $draft->course);
+        self::assertEquals($data->course, $draft->get_course());
         self::assertEquals('FW: ' . $data->subject, $draft->subject);
         $expected = '<p><br></p>'
             . '<p>'
-            . '--------- ' . get_string('forwardedmessage', 'local_mail') . ' ---------<br>'
-            . get_string('from', 'local_mail') . ': '
-            . $message->sender()->fullname() . '<br>'
-            . get_string('date', 'local_mail') . ': '
+            . '--------- ' . output\strings::get('forwardedmessage') . ' ---------<br>'
+            . output\strings::get('from') . ': '
+            . $message->get_sender()->fullname() . '<br>'
+            . output\strings::get('date') . ': '
             . userdate($message->time, get_string('strftimedatetime', 'langconfig')) . '<br>'
-            . get_string('subject', 'local_mail') . ': '
+            . output\strings::get('subject') . ': '
             . format_text($message->subject, FORMAT_PLAIN, ['filter' => false])
             . '</p>'
             . format_text($message->content, $message->format, ['filter' => false]);
         self::assertEquals($expected, $draft->content);
         self::assertEquals(FORMAT_HTML, $draft->format);
-        self::assertEquals($user2, $draft->sender());
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_TO));
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_CC));
-        self::assertEqualsCanonicalizing([], $draft->recipients(message::ROLE_BCC));
+        self::assertEquals($user2, $draft->get_sender());
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([], $draft->get_recipients(message::ROLE_BCC));
         self::assertGreaterThanOrEqual($now, $draft->time);
-        self::assertEquals([], $draft->fetch_references());
+        self::assertEquals([], $draft->get_references());
         self::assert_attachments(['file1.txt' => 'File 1', 'file2.txt' => 'File 2'], $draft);
 
         // User cannot view message.
@@ -1636,15 +1815,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Inexistent message.
 
         try {
-            external::forward_message(0);
+            external::forward_message(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // User not enrolled in course.
@@ -1660,6 +1841,7 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
     }
 
@@ -1695,25 +1877,28 @@ class external_test extends testcase {
         ];
         self::create_draft_file($data['draftitemid'], 'file1.txt', 'File 1');
         self::create_draft_file($data['draftitemid'], 'file2.txt', 'File 2');
+        $eventsink = $this->redirectEvents();
 
         $result = external::update_message($message->id, $data);
 
-        $this->assertNull(external::update_message_returns());
+        self::assertNull(external::update_message_returns());
         self::assertNull($result);
-        $message = message::fetch($message->id);
-        self::assertEquals($course2, $message->course);
+        $message = message::get($message->id);
+        self::assertEquals($course2, $message->get_course());
         self::assertEquals('Message subject', $message->subject);
         self::assertEquals('Message content', $message->content);
         self::assertEquals(FORMAT_HTML, $message->format);
         self::assertGreaterThanOrEqual($now, $message->time);
-        self::assertEquals($user1, $message->sender());
-        self::assertEqualsCanonicalizing([$user2, $user3], $message->recipients(message::ROLE_TO));
-        self::assertEqualsCanonicalizing([$user4], $message->recipients(message::ROLE_CC));
-        self::assertEqualsCanonicalizing([$user5], $message->recipients(message::ROLE_BCC));
+        self::assertEquals($user1, $message->get_sender());
+        self::assertEqualsCanonicalizing([$user2, $user3], $message->get_recipients(message::ROLE_TO));
+        self::assertEqualsCanonicalizing([$user4], $message->get_recipients(message::ROLE_CC));
+        self::assertEqualsCanonicalizing([$user5], $message->get_recipients(message::ROLE_BCC));
         self::assert_attachments([
             'file1.txt' => 'File 1',
-            'file2.txt' => 'File 2'
+            'file2.txt' => 'File 2',
         ], $message);
+
+        self::assert_message_event('\local_mail\event\draft_updated', $message, $eventsink);
 
         // User cannot view message.
 
@@ -1723,15 +1908,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Inexistent message.
 
         try {
-            external::update_message(0, $data);
+            external::update_message(123, $data);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // User not enrolled in course.
@@ -1743,6 +1930,7 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errorcoursenotfound', $e->errorcode);
+            self::assertEquals($data['courseid'], $e->a);
         }
     }
 
@@ -1777,14 +1965,15 @@ class external_test extends testcase {
         self::create_draft_file($data->draftitemid, 'file.txt', 'File content');
         $message = message::create($data);
         self::setUser($user1->id);
-        $sink = $this->redirectMessages();
+        $notificationsink = $this->redirectMessages();
+        $eventsink = $this->redirectEvents();
 
         $result = external::send_message($message->id);
 
         self::assertNull($result);
-        $this->assertNull(external::send_message_returns());
+        self::assertNull(external::send_message_returns());
 
-        $message = message::fetch($message->id);
+        $message = message::get($message->id);
         self::assertFalse($message->draft);
         self::assertGreaterThanOrEqual($now, $message->time);
         self::assertTrue($message->unread($user2));
@@ -1792,8 +1981,9 @@ class external_test extends testcase {
         self::assertTrue($message->unread($user4));
         self::assertTrue($message->unread($user5));
 
-        $notifications = $sink->get_messages();
-        $recipients = $message->recipients();
+        $notificationsink->close();
+        $notifications = $notificationsink->get_messages();
+        $recipients = $message->get_recipients();
         self::assertEquals(count($recipients), count($notifications));
         foreach ($recipients as $i => $user) {
             $expected = $renderer->notification($message, $user);
@@ -1811,6 +2001,8 @@ class external_test extends testcase {
             self::assertEquals($expected->contexturlname, $notifications[$i]->contexturlname);
         }
 
+        self::assert_message_event('\local_mail\event\message_sent', $message, $eventsink);
+
         // User cannot edit message.
 
         try {
@@ -1818,15 +2010,17 @@ class external_test extends testcase {
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals($message->id, $e->a);
         }
 
         // Inexistent message.
 
         try {
-            external::send_message(0);
+            external::send_message(123);
             self::fail();
         } catch (exception $e) {
             self::assertEquals('errormessagenotfound', $e->errorcode);
+            self::assertEquals(123, $e->a);
         }
 
         // Empty subject.

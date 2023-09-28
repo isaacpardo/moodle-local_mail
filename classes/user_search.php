@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -81,13 +72,13 @@ class user_search {
     }
 
     /**
-     * Fetch users that match the search parameters.
+     * Gets users that match the search parameters.
      *
-     * @param int $offset Start fetching from this offset.
-     * @param int $limit Limit number of users to fetch, 0 means no limit.
+     * @param int $offset Skip this number of users.
+     * @param int $limit Maximum number of users, 0 means no limit.
      * @return user[] Found users, indexed by ID.
      */
-    public function fetch(int $offset = 0, int $limit = 0): array {
+    public function get(int $offset = 0, int $limit = 0): array {
         global $DB;
 
         $fields = \core_user\fields::get_picture_fields();
@@ -118,7 +109,7 @@ class user_search {
         global $DB;
 
         // Enrolled.
-        $context = $this->course->context();
+        $context = $this->course->get_context();
         $ejoin = get_enrolled_join($context, 'u.id', true);
         $joins = $ejoin->joins;
         $wheres = $ejoin->wheres;

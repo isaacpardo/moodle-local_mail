@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 export interface Attachment {
     readonly filepath: string;
     readonly filename: string;
@@ -13,7 +19,8 @@ export interface Course {
     readonly fullname: string;
     readonly visible: boolean;
     readonly groupmode: GroupMode;
-    readonly unread?: number;
+    readonly unread: number;
+    readonly drafts: number;
 }
 
 export enum DeletedStatus {
@@ -54,7 +61,13 @@ export interface Label {
     readonly id: number;
     readonly name: string;
     readonly color: string;
-    readonly unread?: number;
+    readonly unread: number;
+    readonly courses: ReadonlyArray<LabelCourse>;
+}
+
+export interface LabelCourse {
+    readonly id: number;
+    readonly unread: number;
 }
 
 export interface Message extends MessageSummary {
@@ -159,7 +172,6 @@ export type SelectAllType = 'all' | 'none' | 'read' | 'unread' | 'starred' | 'un
 
 export interface ServiceError {
     readonly message: string;
-    readonly errorcode: string;
     readonly debuginfo?: string;
     readonly stacktrace?: string;
 }
@@ -187,8 +199,9 @@ export interface State {
     readonly incrementalSearchStopId?: number;
     readonly mobile: boolean;
 
-    /* Parameters of the current view. */
+    /* URL parameters of the current and previous view. */
     readonly params: ViewParams;
+    readonly prevParams?: ViewParams;
 
     /* Data fetched using web services for the current view.  */
     readonly unread: number;
@@ -227,6 +240,8 @@ export type Tray = 'inbox' | 'sent' | 'drafts' | 'starred' | 'course' | 'label' 
 
 export interface User {
     readonly id: number;
+    readonly firstname: string;
+    readonly lastname: string;
     readonly fullname: string;
     readonly pictureurl: string;
     readonly profileurl: string;

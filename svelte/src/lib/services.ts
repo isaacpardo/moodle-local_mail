@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { require, type CoreAjax } from './amd';
 import {
     DeletedStatus,
@@ -20,6 +26,7 @@ export type ServiceRequest =
     | CountMessagesRequest
     | SearchMessagesRequest
     | GetMessageRequest
+    | ViewMessageRequest
     | SetUnreadRequest
     | SetStarredRequest
     | SetDeletedRequest
@@ -98,6 +105,13 @@ export interface GetMessageRequest {
 
 export type GetMessageResponse = Message;
 
+export interface ViewMessageRequest {
+    readonly methodname: 'view_message';
+    readonly messageid: number;
+}
+
+export type ViewMessageResponse = null;
+
 export interface SetUnreadRequest {
     readonly methodname: 'set_unread';
     readonly messageid: number;
@@ -124,6 +138,7 @@ export type SetDeletedResponse = void;
 
 export interface EmptyTrashRequest {
     readonly methodname: 'empty_trash';
+    readonly courseid?: number;
 }
 
 export type EmptyTrashResponse = void;
@@ -243,13 +258,13 @@ export type SendMessageResponse = void;
  */
 export async function callServices(requests: ServiceRequest[]): Promise<unknown[]> {
     const ajax = (await require('core/ajax')) as CoreAjax;
-    const responses = await Promise.all(
-        ajax.call(
-            Array.from(requests).map(({ methodname, ...args }) => ({
-                methodname: `local_mail_${methodname}`,
-                args,
-            })),
-        ),
-    );
-    return responses;
+    const ajaxRequests = Array.from(requests).map(({ methodname, ...args }) => ({
+        methodname: `local_mail_${methodname}`,
+        args,
+    }));
+    try {
+        return await Promise.all(ajax.call(ajaxRequests));
+    } catch (error) {
+        throw typeof error == 'string' ? { message: error } : error;
+    }
 }

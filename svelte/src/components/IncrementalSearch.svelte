@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -148,7 +153,7 @@
     </div>
 {/if}
 
-<style>
+<style global>
     .local-mail-incremental-search-muted {
         opacity: 0.6;
     }

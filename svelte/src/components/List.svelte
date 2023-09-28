@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -97,8 +102,13 @@
     </div>
 {/key}
 
-<style>
+<style global>
     .local-mail-list-message {
         color: var(--dark) !important;
+    }
+
+    .local-mail-list-message:focus,
+    .local-mail-list-message .btn:focus {
+        z-index: 3;
     }
 </style>

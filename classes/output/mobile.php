@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail\output;
 
@@ -27,7 +18,7 @@ class mobile {
 
         $user = user::current();
 
-        if (!settings::is_installed() || !$user || !course::fetch_by_user($user)) {
+        if (!settings::is_installed() || !$user || !course::get_by_user($user)) {
             return ['disabled' => true];
         }
 
@@ -45,7 +36,7 @@ class mobile {
             'templates' => [
                 [
                     'id' => 'main',
-                    'html' => '<core-iframe src="' . $url->out(false) . '"></core-iframe>'
+                    'html' => '<core-iframe src="' . $url->out(false) . '"></core-iframe>',
                 ],
             ],
             'javascript' => file_get_contents("$CFG->dirroot/local/mail/classes/output/mobile-view.js"),

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -67,11 +72,11 @@
         : $store.listMessages.length == 0
         ? ''
         : $store.params.search
-        ? replaceStringParams($store.strings.pagingsearch, {
+        ? replaceStringParams($store.strings.pagingrange, {
               first: ($store.params.offset || 0) + 1,
               last: ($store.params.offset || 0) + $store.listMessages.length,
           })
-        : replaceStringParams($store.strings.pagingmultiple, {
+        : replaceStringParams($store.strings.pagingrangetotal, {
               first: ($store.params.offset || 0) + 1,
               last: ($store.params.offset || 0) + $store.listMessages.length,
               total: $store.totalCount,
@@ -114,7 +119,7 @@
     </div>
 </div>
 
-<style>
+<style global>
     .local-mail-paging-buttons {
         min-width: 0;
         column-gap: 1rem;

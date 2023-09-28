@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -45,7 +36,7 @@ class settings_test extends testcase {
         self::assertEquals(1000, $settings->incrementalsearchlimit);
     }
 
-    public function test_fetch() {
+    public function test_get() {
         set_config('maxbytes', 123000);
         set_config('enablebackup', '0', 'local_mail');
         set_config('maxrecipients', '20', 'local_mail');
@@ -63,7 +54,7 @@ class settings_test extends testcase {
         set_config('message_provider_local_mail_mail_enabled', 'popup,email', 'message');
         set_config('email_provider_local_mail_mail_locked', '1', 'message');
 
-        $settings = settings::fetch();
+        $settings = settings::get();
 
         self::assertFalse($settings->enablebackup);
         self::assertEquals(20, $settings->maxrecipients);
@@ -96,7 +87,7 @@ class settings_test extends testcase {
         // Empty global trays.
 
         set_config('globaltrays', '', 'local_mail');
-        $settings = settings::fetch();
+        $settings = settings::get();
         self::assertEquals([], $settings->globaltrays);
     }
 

@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -73,9 +64,9 @@ class message_data {
         assert($message->draft);
 
         $data = new self();
-        $data->sender = $message->sender();
-        $data->course = $message->course;
-        foreach ($message->recipients() as $user) {
+        $data->sender = $message->get_sender();
+        $data->course = $message->get_course();
+        foreach ($message->get_recipients() as $user) {
             if ($message->role($user) == message::ROLE_TO) {
                 $data->to[] = $user;
             } else if ($message->role($user) == message::ROLE_CC) {
@@ -88,7 +79,7 @@ class message_data {
         $data->draftitemid = 0;
         $data->content = file_prepare_draft_area(
             $data->draftitemid,
-            $message->course->context()->id,
+            $message->get_course()->get_context()->id,
             'local_mail',
             'message',
             $message->id,
@@ -133,11 +124,11 @@ class message_data {
      */
     public static function forward(message $message, user $sender): self {
         assert(!$message->draft);
-        assert($sender->id == $message->sender()->id || $message->has_recipient($sender));
+        assert($sender->id == $message->get_sender()->id || $message->has_recipient($sender));
 
         $data = new self();
         $data->sender = $sender;
-        $data->course = $message->course;
+        $data->course = $message->get_course();
         $data->time = time();
 
         // Subject.
@@ -151,7 +142,7 @@ class message_data {
         $data->draftitemid = 0;
         $originalcontent = file_prepare_draft_area(
             $data->draftitemid,
-            $message->course->context()->id,
+            $message->get_course()->get_context()->id,
             'local_mail',
             'message',
             $message->id,
@@ -160,12 +151,12 @@ class message_data {
         );
         $data->content = '<p><br></p>'
             . '<p>'
-            . '--------- ' . get_string('forwardedmessage', 'local_mail') . ' ---------<br>'
-            . get_string('from', 'local_mail') . ': '
-            . $message->sender()->fullname() . '<br>'
-            . get_string('date', 'local_mail') . ': '
+            . '--------- ' . output\strings::get('forwardedmessage') . ' ---------<br>'
+            . output\strings::get('from') . ': '
+            . $message->get_sender()->fullname() . '<br>'
+            . output\strings::get('date') . ': '
             . userdate($message->time, get_string('strftimedatetime', 'langconfig')) . '<br>'
-            . get_string('subject', 'local_mail') . ': '
+            . output\strings::get('subject') . ': '
             . format_text($message->subject, FORMAT_PLAIN, ['filter' => false])
             . '</p>'
             . format_text($originalcontent, $message->format, ['filter' => false]);
@@ -200,9 +191,9 @@ class message_data {
      */
     public static function reply(message $message, user $sender, bool $all): self {
         assert(!$message->draft);
-        assert($sender->id == $message->sender()->id || $message->has_recipient($sender));
+        assert($sender->id == $message->get_sender()->id || $message->has_recipient($sender));
 
-        $data = self::new($message->course, $sender);
+        $data = self::new($message->get_course(), $sender);
         $data->reference = $message;
 
         // Subject.
@@ -215,15 +206,15 @@ class message_data {
         // Recipients.
         if ($message->role($sender) == message::ROLE_FROM) {
             // Reply to self.
-            $data->to = $message->recipients(message::ROLE_TO);
+            $data->to = $message->get_recipients(message::ROLE_TO);
             if ($all) {
-                $data->cc = $message->recipients(message::ROLE_CC);
+                $data->cc = $message->get_recipients(message::ROLE_CC);
             }
         } else {
             // Reply to antoher user.
-            $data->to = [$message->sender()];
+            $data->to = [$message->get_sender()];
             if ($all) {
-                foreach ($message->recipients(message::ROLE_TO, message::ROLE_CC) as $user) {
+                foreach ($message->get_recipients(message::ROLE_TO, message::ROLE_CC) as $user) {
                     if ($user->id != $sender->id) {
                         $data->cc[] = $user;
                     }

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -16,7 +21,7 @@
     {message.shorttime}
 </span>
 
-<style>
+<style global>
     .local-mail-list-message-time-md {
         min-width: 5rem;
     }

@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { type Dialog, type SearchParams, type Tray, type ViewParams } from './state';
 
 function baseUrl() {
@@ -15,6 +21,14 @@ export function createUrl(courseid: number, recipients: number[] = [], role?: st
         url.searchParams.set('role', role);
     }
     url.searchParams.set('sesskey', window.M.cfg.sesskey);
+
+    return url.toString();
+}
+
+export function downloadAllUrl(messageid: number): string {
+    const url = new URL(baseUrl() + 'download.php');
+
+    url.searchParams.set('m', String(messageid));
 
     return url.toString();
 }
@@ -68,7 +82,7 @@ export function viewUrl(params: ViewParams): string {
     if (params.messageid) {
         url.searchParams.set('m', String(params.messageid));
     }
-    if (params.search && params.offset) {
+    if (params.offset) {
         url.searchParams.set('o', String(params.offset));
     }
     if (params.search?.content) {

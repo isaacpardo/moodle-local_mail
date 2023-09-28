@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -70,7 +75,7 @@
             on:click={toggleMarkAsRead}
         />
         <label for="local-mail-preferences-markasread" class="custom-control-label pl-1">
-            {$store.strings.markmessageasread}
+            {$store.strings.markmessagesasread}
         </label>
     </div>
 </ModalDialog>

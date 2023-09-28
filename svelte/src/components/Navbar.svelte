@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -10,24 +15,24 @@
 
     export let settings: Settings;
     export let strings: Strings;
-    export let unread: number;
-    export let drafts: number;
     export let courses: ReadonlyArray<Course>;
     export let labels: ReadonlyArray<Label>;
-    export let params: ViewParams | undefined = undefined;
+    export let params: ViewParams;
     export let onClick: (params: ViewParams) => void;
     export let onComposeClick: (courseid: number) => void;
+    export let onCourseChange: (courseid?: number) => void;
 
     let expanded = false;
-    let viewportWidth: number;
+
+    $: unread = courses.reduce((acc, course) => acc + course.unread, 0);
 
     const closeMenu = () => {
         expanded = false;
     };
 
     const handleComposeClick = () => {
-        expanded = false;
-        onComposeClick(params?.courseid || courses[0].id);
+        closeMenu();
+        onComposeClick(params.courseid || courses[0].id);
     };
 
     const handleIconClick = (event: Event) => {
@@ -41,77 +46,74 @@
     };
 
     const handleMenuClick = (params: ViewParams) => {
-        expanded = false;
+        closeMenu();
         onClick(params);
     };
 
     const handlePreferencesClick = () => {
-        expanded = false;
-        onClick({
-            ...(params || { tray: 'inbox' }),
-            dialog: 'preferences',
-        });
+        closeMenu();
+        onClick({ ...params, dialog: 'preferences' });
     };
 </script>
 
-<svelte:window bind:innerWidth={viewportWidth} />
-
 <div
-    class="local-mail-navbar dropdown h-100"
-    class:position-static={viewportWidth < 768}
+    class="local-mail local-mail-navbar pop-over-region h-100"
+    class:popover-region-toggle={expanded}
     use:blur={closeMenu}
 >
     <a
         aria-expanded={expanded}
-        aria-label={strings.togglemailmenu}
-        class="btn h-100 position-relative d-flex align-items-center px-2 py-0"
+        class="nav-link btn h-100 position-relative d-flex align-items-center px-2 py-0 rounded-0"
         href={viewUrl({ tray: 'inbox' })}
+        title={strings.pluginname}
         on:click={handleIconClick}
     >
-        <i class="fa fa-fw fa-envelope-o" aria-label={strings.plugginname} />
+        <i class="icon fa fa-fw fa-envelope-o m-0" aria-label={strings.plugginname} />
         {#if unread > 0}
             <div class="local-mail-navbar-count count-container">{unread}</div>
         {/if}
     </a>
     {#if expanded}
-        <div
-            class="local-mail-navbar-dropdown dropdown-menu dropdown-menu-right show p-0 overflow-auto"
-        >
-            <div class="d-flex justify-content-between pl-3 pr-2 py-2">
+        <div class="local-mail-navbar-popover popover-region-container">
+            <div class="d-flex justify-content-between p-2">
                 <ComposeButton {strings} onClick={handleComposeClick} />
                 <PreferencesButton {strings} onClick={handlePreferencesClick} />
             </div>
-            <hr class="m-0" />
             <MenuComponent
                 {settings}
                 {strings}
-                {unread}
-                {drafts}
                 {courses}
                 {labels}
                 {params}
+                navbar={true}
                 onClick={handleMenuClick}
-                flush={true}
+                {onCourseChange}
             />
         </div>
     {/if}
 </div>
 
-<style>
-    .local-mail-navbar :global(.fa) {
-        font-size: 16px;
-    }
+<style global>
     .local-mail-navbar-count {
-        top: 50%;
+        top: 50% !important;
         transform: translateY(-16px);
     }
-    .local-mail-navbar-dropdown {
-        width: 100vw;
-        max-width: 20rem;
-        background-color: var(--light);
-        box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.1);
+
+    .local-mail-navbar.popover-region-toggle::after {
+        border-bottom-color: var(--light);
     }
-    .local-mail-navbar-dropdown :global(.list-group-item) {
+
+    .local-mail-navbar-popover {
+        width: 20rem;
+        overflow-y: auto;
         background-color: var(--light);
+    }
+
+    .local-mail-navbar-popover .list-group-item:not(.list-group-item-primary) {
+        background-color: transparent;
+    }
+
+    .local-mail-navbar-popover .list-group-item:not(.list-group-item-primary):hover {
+        background-color: rgba(0, 0, 0, 0.025);
     }
 </style>

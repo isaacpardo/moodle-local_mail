@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -34,12 +25,12 @@ class user_search_test extends testcase {
         }
     }
 
-    public function test_fetch() {
+    public function test_get() {
         $users = self::generate_data();
         foreach (self::cases($users) as $search) {
             $filteredusers = self::filter_users($users, $search);
             $expected = array_slice($filteredusers, 5, 10, true);
-            $result = $search->fetch(5, 10);
+            $result = $search->get(5, 10);
             self::assertEquals($expected, $result, $search);
             self::assertEquals(array_keys($expected), array_keys($result), $search);
         }
@@ -55,7 +46,7 @@ class user_search_test extends testcase {
         $result = [];
 
         foreach ($users as $user) {
-            foreach (course::fetch_by_user($user) as $course) {
+            foreach (course::get_by_user($user) as $course) {
                 // All users.
                 $result[] = new user_search($user, $course);
 
@@ -98,7 +89,7 @@ class user_search_test extends testcase {
     protected static function filter_users(array $users, user_search $search): array {
         global $DB;
 
-        $context = $search->course->context();
+        $context = $search->course->get_context();
 
         $excludedroleids = [];
         if (!has_capability('local/mail:mailsamerole', $context, $search->user->id, false)) {
@@ -173,7 +164,7 @@ class user_search_test extends testcase {
         foreach ([NOGROUPS, VISIBLEGROUPS, SEPARATEGROUPS] as $groupmode) {
             $course = new course($generator->create_course(['groupmode' => $groupmode]));
             $courses[] = $course;
-            $roles[$course->id] = get_role_names_with_caps_in_context($course->context(), ['local/mail:usemail']);
+            $roles[$course->id] = get_role_names_with_caps_in_context($course->get_context(), ['local/mail:usemail']);
             $group1 = $generator->create_group(['courseid' => $course->id]);
             $group2 = $generator->create_group(['courseid' => $course->id]);
             $groupids[$course->id] = [0, $group1->id, $group2->id];

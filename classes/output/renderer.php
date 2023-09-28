@@ -1,18 +1,12 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
+ * SPDX-FileCopyrightText: 2014-2019 Marc Català <reskit@gmail.com>
+ * SPDX-FileCopyrightText: 2016 Albert Gasset <albertgasset@fsfe.org>
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail\output;
 
@@ -28,7 +22,12 @@ class renderer extends \plugin_renderer_base {
      * @return string
      */
     public function file_icon_url(\stored_file $file): string {
-        return $this->image_url(file_file_icon($file, 24))->out(false);
+        global $CFG;
+
+        // Size is deprecated since Moodle 4.3.
+        $size = $CFG->branch >= 403 ? null : 24;
+
+        return $this->image_url(file_file_icon($file, $size))->out(false);
     }
 
     /**
@@ -105,8 +104,11 @@ class renderer extends \plugin_renderer_base {
 
         require_once("$CFG->libdir/filelib.php");
 
-        $url = new \moodle_url('/local/mail/view.php', array('t' => 'inbox', 'm' => $message->id));
-        $context = $message->course->context();
+        $course = $message->get_course();
+        $context = $course->get_context();
+        $sender = $message->get_sender();
+
+        $url = new \moodle_url('/local/mail/view.php', ['t' => 'inbox', 'm' => $message->id]);
         $content = file_rewrite_pluginfile_urls(
             $message->content,
             'pluginfile.php',
@@ -128,15 +130,15 @@ class renderer extends \plugin_renderer_base {
         }
 
         $notification = new \core\message\message();
-        $notification->courseid = $message->course->id;
+        $notification->courseid = $message->courseid;
         $notification->component = 'local_mail';
         $notification->name = 'mail';
-        $notification->userfrom = $message->sender()->id;
+        $notification->userfrom = $sender->id;
         $notification->userto = $recipient->id;
-        $notification->subject = get_string('notificationsubject', 'local_mail', $SITE->shortname);
+        $notification->subject = strings::get('notificationsubject', $SITE->shortname);
         $notification->fullmessage = $this->render_from_template('local_mail/notification_text', [
-            'coursename' => $message->course->fullname,
-            'sendername' => $message->sender()->fullname(),
+            'coursename' => $course->fullname,
+            'sendername' => $sender->fullname(),
             'date' => $this->formatted_time($message->time, true),
             'subject' => $message->subject,
             'content' => format_text_email($content, $message->format),
@@ -146,10 +148,10 @@ class renderer extends \plugin_renderer_base {
         ]);
         $notification->fullmessageformat = FORMAT_PLAIN;
         $notification->fullmessagehtml = $this->render_from_template('local_mail/notification_html', [
-            'coursename' => $message->course->fullname,
-            'courseurl' => $message->course->url(),
-            'sendername' => $message->sender()->fullname(),
-            'senderurl' => $message->sender()->profile_url($message->course),
+            'coursename' => $course->fullname,
+            'courseurl' => $course->url(),
+            'sendername' => $sender->fullname(),
+            'senderurl' => $sender->profile_url($course),
             'date' => $this->formatted_time($message->time, true),
             'subject' => $message->subject,
             'content' => format_text($content, $message->format, ['filter' => false]),
@@ -157,9 +159,9 @@ class renderer extends \plugin_renderer_base {
             'attachments' => $attachments,
             'viewurl' => $url->out(false),
         ]);
-        $notification->smallmessage = get_string('notificationsmallmessage', 'local_mail', [
-            'user' => $message->sender()->fullname(),
-            'course' => $message->course->fullname,
+        $notification->smallmessage = strings::get('notificationsmallmessage', [
+            'user' => $sender->fullname(),
+            'course' => $course->fullname,
         ]);
         $notification->notification = 1;
         $notification->contexturl = $url->out(false);

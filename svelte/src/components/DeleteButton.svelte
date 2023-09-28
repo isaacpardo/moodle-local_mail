@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -14,7 +19,7 @@
     class:btn-secondary={!transparent}
     class:disabled={!$store.selectedMessages.size}
     disabled={!$store.selectedMessages.size}
-    title={$store.strings.delete}
+    title={$store.strings.movetotrash}
     on:click={() =>
         store.setDeleted(Array.from($store.selectedMessages.keys()), DeletedStatus.Deleted, true)}
 >

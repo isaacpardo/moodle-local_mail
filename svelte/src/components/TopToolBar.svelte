@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -36,19 +41,21 @@
             <MoreActionsButton {store} />
         </div>
     {/if}
-    {#if !$store.message?.draft && ['shortname', 'fullname'].includes($store.settings.filterbycourse)}
+    {#if !$store.message?.draft && ['shortname', 'fullname'].includes($store.settings.filterbycourse) && $store.viewportSize < ViewportSize.LG}
         <div
             class="d-flex flex-grow-1 ml-auto mr-0 ml-md-0 mr-md-auto"
             style="max-width: 20rem; min-width: 0"
         >
             <CourseSelect
-                {store}
-                label={$store.strings.filterbycourse}
+                settings={$store.settings}
+                strings={$store.strings}
+                courses={$store.courses}
+                label={$store.strings.allcourses}
                 selected={$store.params.courseid}
                 readonly={$store.params.tray == 'course'}
                 onChange={(id) => store.selectCourse(id)}
                 primary={true}
-                align={$store.viewportSize >= ViewportSize.MD ? 'left' : 'right'}
+                style={$store.viewportSize >= ViewportSize.MD ? 'filter-left' : 'filter-right'}
             />
         </div>
     {/if}
@@ -60,7 +67,7 @@
     {/if}
 </div>
 
-<style>
+<style global>
     .local-mail-toolbar {
         column-gap: 1rem;
     }

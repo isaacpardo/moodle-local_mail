@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -31,23 +36,21 @@
     role="tab"
     href={viewUrl(params)}
     on:click={handleClick}
-    style={color != null && !active
-        ? `color: var(--local-mail-color-${color}-fg, var(--local-mail-color-gray-fg));`
-        : ''}
+    style={color && !active ? `color: var(--local-mail-color-${color}-fg)` : ''}
 >
     <i
         class="fa {icon} fa-fw"
         aria-hidden="true"
-        style={color != null && !active
-            ? `color: var(--local-mail-color-${color}-bg, var(--local-mail-color-gray-bg));`
-            : ''}
+        style={color && !active ? `color: var(--local-mail-color-${color}-bg)` : ''}
     />
-    <span class="flex-fill px-2" use:truncate={text}>
-        {text}
-    </span>
+    <span class="flex-fill px-2" use:truncate={text}>{text}</span>
     {#if count > 0}
-        <span class="local-mail-menu-item-count badge">
-            {count}
-        </span>
+        <span class="badge">{count}</span>
     {/if}
 </a>
+
+<style global>
+    .local-mail-menu-item:focus {
+        z-index: 3;
+    }
+</style>

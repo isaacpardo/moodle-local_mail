@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -49,7 +54,7 @@
     {/each}
 </div>
 
-<style>
+<style global>
     .local-mail-toasts {
         left: 0;
         bottom: 0;
@@ -57,7 +62,7 @@
         pointer-events: none;
     }
 
-    .local-mail-toasts :global(.toast) {
+    .local-mail-toasts .toast {
         opacity: 1;
         pointer-events: auto;
         flex-basis: 0;

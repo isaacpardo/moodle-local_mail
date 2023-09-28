@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -69,7 +74,7 @@
         store.showDialog('deletelabel');
     };
 
-    const confirmDeleteLabel = () => {
+    const deletelabelconfirm = () => {
         store.hideDialog();
         store.deleteLabel($store.params.labelid || 0);
     };
@@ -81,7 +86,7 @@
 
     const confirmEmptyTrash = () => {
         store.hideDialog();
-        store.emptyTrash();
+        store.emptyTrash($store.params.courseid);
     };
 </script>
 
@@ -93,7 +98,7 @@
         class:disabled
         {disabled}
         aria-expanded={expanded}
-        title={$store.strings.moreactions}
+        title={$store.strings.more}
         on:click={toggleMenu}
     >
         <i class="fa fa-fw fa-ellipsis-v" />
@@ -169,15 +174,15 @@
             confirmText={$store.strings.deletelabel}
             confirmClass="btn-danger"
             onCancel={() => store.hideDialog()}
-            onConfirm={confirmDeleteLabel}
+            onConfirm={deletelabelconfirm}
         >
-            {replaceStringParams($store.strings.labeldeleteconfirm, label.name)}
+            {replaceStringParams($store.strings.deletelabelconfirm, label.name)}
         </ModalDialog>
     {/if}
 {/if}
 
-<style>
+<style global>
     .local-mail-action-more-button::after {
-        display: none;
+        display: none !important;
     }
 </style>

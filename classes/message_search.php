@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -171,7 +162,7 @@ class message_search {
 
         $result = [];
         foreach ($DB->get_records_sql($sql, $params) as $record) {
-            $result[$record->courseid] = $record->num;
+            $result[$record->courseid] = (int) $record->num;
         }
 
         return $result;
@@ -180,31 +171,31 @@ class message_search {
     /**
      * Counts the number of messages per label that match the search parameters.
      *
-     * @return int[] Array of number of messages, indexed by label ID.
+     * @return int[][] Array of number of messages, indexed by label ID and course ID.
      */
     public function count_per_label(): array {
         global $DB;
 
         list($fromsql, $wheresql, $ordersql, $params) = $this->get_base_sql(true);
 
-        $sql = "SELECT i.labelid, COUNT(*) AS num $fromsql $wheresql GROUP BY i.labelid";
+        $sql = "SELECT MIN(i.id), i.labelid, i.courseid, COUNT(*) AS num $fromsql $wheresql GROUP BY i.labelid, i.courseid";
 
         $result = [];
         foreach ($DB->get_records_sql($sql, $params) as $record) {
-            $result[$record->labelid] = $record->num;
+            $result[$record->labelid][$record->courseid] = (int) $record->num;
         }
 
         return $result;
     }
 
     /**
-     * Fetch messages that match the search parameters.
+     * Gets messages that match the search parameters.
      *
-     * @param int $offset Start fetching from this offset.
-     * @param int $limit Limit number of messages to fetch, 0 means no limit.
+     * @param int $offset Skip this number of messages.
+     * @param int $limit Maximum number of messages, 0 means no limit.
      * @return message[] Found messages, ordered from newer to older (unless reversed), and indexed by ID.
      */
-    public function fetch(int $offset = 0, int $limit = 0): array {
+    public function get(int $offset = 0, int $limit = 0): array {
         global $DB;
 
         list($fromsql, $wheresql, $ordersql, $params) = $this->get_base_sql();
@@ -213,7 +204,7 @@ class message_search {
 
         $records = $DB->get_records_sql($sql, $params, $offset, $limit);
 
-        $result = message::fetch_many(array_keys($records));
+        $result = message::get_many(array_keys($records));
 
         return $this->reverse ? array_reverse($result, true) : $result;
     }
@@ -228,13 +219,13 @@ class message_search {
     private function get_base_sql(bool $countperlabel = false) {
         global $CFG, $DB;
 
-        assert(!$this->label || $this->label->user->id == $this->user->id);
+        assert(!$this->label || $this->label->userid == $this->user->id);
 
         $selects = [];
         $params = [];
 
         $conditions = [
-            'courseid' => $this->course->id ?? array_keys(course::fetch_by_user(($this->user))),
+            'courseid' => $this->course->id ?? array_keys(course::get_by_user(($this->user))),
             'draft' => $this->draft ?? [0, 1],
             'role' => $this->roles ?: [message::ROLE_FROM, message::ROLE_TO, message::ROLE_CC, message::ROLE_BCC],
             'unread' => $this->unread ?? [0, 1],
@@ -244,7 +235,7 @@ class message_search {
 
         if ($this->label || $countperlabel) {
             $fromsql = 'FROM {local_mail_message_labels} i';
-            $conditions['labelid'] = $this->label->id ?? array_keys(label::fetch_by_user($this->user));
+            $conditions['labelid'] = $this->label->id ?? array_keys(label::get_by_user($this->user));
         } else {
             $fromsql = 'FROM {local_mail_message_users} i';
             $conditions['userid'] = $this->user->id;

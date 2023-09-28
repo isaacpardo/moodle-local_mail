@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -5,7 +10,7 @@
     import { blur } from '../actions/blur';
     import type { SearchParams, ViewParams } from '../lib/state';
     import type { Store } from '../lib/store';
-    import AdvancedSearch from './AdvancedSearch.svelte';
+    import SearchOptions from './SearchOptions.svelte';
     import IncrementalSearch from './IncrementalSearch.svelte';
 
     export let store: Store;
@@ -13,7 +18,7 @@
     let entering = !$store.params.search;
     let advancedExpanded = false;
     let inputNode: HTMLElement;
-    let advancedNode: AdvancedSearch;
+    let advancedNode: SearchOptions;
     let content = '';
     let sendername = '';
     let recipientname = '';
@@ -43,7 +48,7 @@
             search?.maxtime,
     );
 
-    $: searchEnabled = search?.content || advancedEnabled;
+    $: searchEnabled = Boolean(search?.content) || advancedEnabled;
 
     $: submitEnabled = Boolean(
         content.trim() ||
@@ -59,11 +64,11 @@
         { label: $store.strings.from, value: sendername },
         { label: $store.strings.to, value: recipientname },
         {
-            label: $store.strings.filterbydate,
+            label: $store.strings.date,
             value: maxtime > 0 ? new Date(maxtime * 1000).toLocaleDateString() : '',
         },
-        { label: $store.strings.searchbyunread, value: unread },
-        { label: $store.strings.searchbyattach, value: withfilesonly },
+        { label: $store.strings.unreadonly, value: unread },
+        { label: $store.strings.hasattachments, value: withfilesonly },
     ].filter(({ value }) => Boolean(value));
 
     const startEntering = async () => {
@@ -147,10 +152,10 @@
     };
 </script>
 
-<form class="local-mail-search-input position-relative" use:blur={stopEntering}>
+<form class="local-mail-search-box position-relative" use:blur={stopEntering}>
     <div
-        class="position-absolute h-100 d-flex justify-content-center align-items-center px-0"
-        style="top: 0; left: 0; width: 2.5rem"
+        class="local-mail-search-box-icon position-absolute h-100 d-flex justify-content-center align-items-center px-0"
+        style="top: 0; left: 0"
     >
         <i class="fa fa-fw {loading ? 'fa-spinner fa-pulse' : 'fa-search'}" aria-hidden="true" />
     </div>
@@ -158,8 +163,8 @@
     {#if entering}
         <input
             type="text"
-            class="form-control"
-            style="padding-left: 2.5rem; padding-right: 5rem"
+            class="local-mail-search-box-input form-control"
+            class:local-mail-search-box-input-enabled={searchEnabled || submitEnabled}
             placeholder={$store.strings.search}
             aria-label={$store.strings.search}
             autocomplete="off"
@@ -170,8 +175,7 @@
     {:else}
         <button
             type="button"
-            class="alert-primary form-control text-left text-truncate"
-            style="padding-left: 2.5rem; padding-right: 5rem"
+            class="local-mail-search-box-input-enabled alert-primary form-control text-left text-truncate"
             on:click={startEntering}
         >
             {#each searchFields as { label, value }, i}
@@ -189,9 +193,8 @@
         {#if searchEnabled || submitEnabled}
             <button
                 type="button"
-                class="btn px-0"
-                title={$store.strings.cancel}
-                style="width: 2.5rem"
+                class="local-mail-search-box-icon btn px-0"
+                title={$store.strings.clearsearch}
                 on:click|preventDefault={cancel}
             >
                 <i class="fa fa-fw fa-times" aria-hidden="true" />
@@ -200,9 +203,8 @@
         <button
             type="button"
             aria-expanded={advancedExpanded}
-            class="btn px-0"
-            style="width: 2.5rem"
-            title={$store.strings.advsearch}
+            class="local-mail-search-box-icon btn px-0"
+            title={$store.strings.searchoptions}
             on:click|preventDefault={toggleDropdown}
         >
             <i
@@ -212,7 +214,7 @@
         </button>
     </div>
     {#if advancedExpanded}
-        <AdvancedSearch
+        <SearchOptions
             bind:this={advancedNode}
             {store}
             bind:sendername
@@ -235,9 +237,20 @@
     {/if}
 </form>
 
-<style>
-    .local-mail-search-input {
+<style global>
+    .local-mail-search-box {
         width: 100%;
         max-width: 100%;
+    }
+    .local-mail-search-box-input {
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+    }
+    .local-mail-search-box-input-enabled {
+        padding-left: 2.5rem;
+        padding-right: 5rem;
+    }
+    .local-mail-search-box-icon {
+        width: 2.5rem;
     }
 </style>

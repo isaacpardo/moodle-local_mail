@@ -1,18 +1,9 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 namespace local_mail;
 
@@ -48,9 +39,9 @@ class message_data_test extends testcase {
         $message = message::create($data);
 
         $data = message_data::draft($message);
-        self::assertEquals($message->sender(), $data->sender);
+        self::assertEquals($message->get_sender(), $data->sender);
         self::assertNull($data->reference);
-        self::assertEquals($message->course, $data->course);
+        self::assertEquals($message->courseid, $data->course->id);
         self::assertEqualsCanonicalizing([$user2, $user3], $data->to);
         self::assertEqualsCanonicalizing([$user4], $data->cc);
         self::assertEqualsCanonicalizing([$user5], $data->bcc);
@@ -82,19 +73,19 @@ class message_data_test extends testcase {
         $data = message_data::forward($message, $user2);
         self::assertEquals($user2, $data->sender);
         self::assertNull($data->reference);
-        self::assertEquals($message->course, $data->course);
+        self::assertEquals($message->courseid, $data->course->id);
         self::assertEqualsCanonicalizing([], $data->to);
         self::assertEqualsCanonicalizing([], $data->cc);
         self::assertEqualsCanonicalizing([], $data->bcc);
         self::assertEquals('FW: Subject', $data->subject);
         $expected = '<p><br></p>'
             . '<p>'
-            . '--------- ' . get_string('forwardedmessage', 'local_mail') . ' ---------<br>'
-            . get_string('from', 'local_mail') . ': '
-            . $message->sender()->fullname() . '<br>'
-            . get_string('date', 'local_mail') . ': '
+            . '--------- ' . output\strings::get('forwardedmessage') . ' ---------<br>'
+            . output\strings::get('from') . ': '
+            . $message->get_sender()->fullname() . '<br>'
+            . output\strings::get('date') . ': '
             . userdate($message->time, get_string('strftimedatetime', 'langconfig')) . '<br>'
-            . get_string('subject', 'local_mail') . ': '
+            . output\strings::get('subject') . ': '
             . format_text($message->subject, FORMAT_PLAIN, ['filter' => false])
             . '</p>'
             . format_text($message->content, $message->format, ['filter' => false]);
@@ -139,7 +130,7 @@ class message_data_test extends testcase {
 
         self::assertEquals($user2, $data->sender);
         self::assertEquals($message, $data->reference);
-        self::assertEquals($message->course, $data->course);
+        self::assertEquals($message->courseid, $data->course->id);
         self::assertEqualsCanonicalizing([$user1], $data->to);
         self::assertEqualsCanonicalizing([], $data->cc);
         self::assertEqualsCanonicalizing([], $data->bcc);

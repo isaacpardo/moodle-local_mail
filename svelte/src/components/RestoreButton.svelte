@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -38,6 +43,6 @@
         onCancel={() => store.hideDialog()}
         onConfirm={confirm}
     >
-        {$store.strings.messagerestoreconfirm}
+        {$store.strings.restoremessageconfirm}
     </ModalDialog>
 {/if}

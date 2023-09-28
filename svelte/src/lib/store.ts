@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { writable } from 'svelte/store';
 import {
     callServices,
@@ -24,7 +30,6 @@ import {
 } from './services';
 import {
     DeletedStatus,
-    RecipientType,
     ViewportSize,
     type Dialog,
     type InitialData,
@@ -56,7 +61,7 @@ export async function createStore(data: InitialData) {
         strings: data.strings,
         mobile: data.mobile,
 
-        /* Params */
+        /* URL parameters */
         params: {},
 
         /* Data */
@@ -93,6 +98,15 @@ export async function createStore(data: InitialData) {
         const messageid = state.message?.id;
         const draftData = state.draftData;
         const params = newParams || state.params;
+        const prevParams =
+            !redirect &&
+            (params.tray != state.params.tray ||
+                params.messageid != state.params.messageid ||
+                params.courseid != state.params.courseid ||
+                params.labelid != state.params.labelid ||
+                params.search != state.params.search)
+                ? { ...state.params, dialog: undefined }
+                : state.prevParams;
         const perpage = state.preferences.perpage;
 
         patch({ loading: true, error: undefined });
@@ -101,25 +115,13 @@ export async function createStore(data: InitialData) {
 
         // Save draft.
         if (messageid && draftData) {
-            clearTimeout(draftTimeoutId);
+            window.clearTimeout(draftTimeoutId);
             requests.unshift({
                 methodname: 'update_message',
                 messageid,
                 data: draftData,
             });
         }
-
-        // Number of unread messages.
-        requests.push({
-            methodname: 'count_messages',
-            query: { roles: Object.values(RecipientType), unread: true },
-        });
-
-        // Number of drafts.
-        requests.push({
-            methodname: 'count_messages',
-            query: { draft: true },
-        });
 
         // Courses.
         requests.push({
@@ -247,8 +249,6 @@ export async function createStore(data: InitialData) {
 
         const labels = responses.pop() as GetLabelsResponse;
         const courses = responses.pop() as GetCoursesResponse;
-        const drafts = responses.pop() as CountMessagesResponse;
-        const unread = responses.pop() as CountMessagesResponse;
         if (messageid && draftData) {
             responses.shift();
         }
@@ -289,8 +289,9 @@ export async function createStore(data: InitialData) {
         // Update state with fetched data.
         patch({
             params,
-            unread,
-            drafts,
+            prevParams,
+            unread: courses.reduce((total, course) => total + course.unread, 0),
+            drafts: courses.reduce((total, course) => total + course.drafts, 0),
             courses,
             labels,
             messageOffset,
@@ -375,9 +376,10 @@ export async function createStore(data: InitialData) {
         await callServicesAndRefresh([request], { tray: 'inbox' });
     };
 
-    const emptyTrash = async () => {
+    const emptyTrash = async (courseid?: number) => {
         const request: EmptyTrashRequest = {
             methodname: 'empty_trash',
+            courseid,
         };
         await callServicesAndRefresh([request]);
     };
@@ -409,11 +411,10 @@ export async function createStore(data: InitialData) {
         patch({ toasts: state.toasts.filter((t) => t != toast) });
     };
 
-    const init = async () => {
-        const params = getViewParamsFromUrl();
-
+    const navigate = async (params?: ViewParams, redirect = false, init = true) => {
         const requests: ServiceRequest[] = [];
-        if (state.settings.incrementalsearch) {
+
+        if (init && state.settings.incrementalsearch) {
             requests.push({
                 methodname: 'search_messages',
                 query: { deleted: false },
@@ -422,34 +423,28 @@ export async function createStore(data: InitialData) {
             });
         }
 
-        const responses = await callServicesAndRefresh(requests, params, true);
+        if (params?.messageid) {
+            requests.push({
+                methodname: 'view_message',
+                messageid: params.messageid,
+            });
+        }
 
-        if (state.settings.incrementalsearch) {
+        const responses = await callServicesAndRefresh(requests, params, redirect);
+
+        if (init && state.settings.incrementalsearch) {
             const messages = responses.pop() as MessageSummary[] | undefined;
             patch({ incrementalSearchStopId: messages?.[0]?.id });
         }
-    };
-
-    const navigate = async (params?: ViewParams, redirect = false) => {
-        const requests: ServiceRequest[] = [];
-        if (params?.messageid) {
-            requests.push({
-                methodname: 'set_unread',
-                messageid: params.messageid,
-                unread: false,
-            });
-        }
-        await callServicesAndRefresh(requests, params, redirect);
     };
 
     const navigateToList = async (redirect = false) => {
         const params: ViewParams = {
             ...state.params,
             messageid: undefined,
-            offset: state.params.search
-                ? Math.floor((state.messageOffset || 0) / state.preferences.perpage) *
-                  state.preferences.perpage
-                : undefined,
+            offset:
+                Math.floor((state.params.offset || 0) / state.preferences.perpage) *
+                    state.preferences.perpage || undefined,
         };
 
         await callServicesAndRefresh([], params, redirect);
@@ -534,11 +529,17 @@ export async function createStore(data: InitialData) {
             messageid: state.message.id,
         };
 
-        const newParams: ViewParams = {
-            tray: 'inbox',
-            courseid: state.params.courseid ? state.message.course.id : undefined,
-        };
-
+        const newParams: ViewParams = state.prevParams
+            ? {
+                  ...state.prevParams,
+                  messageid: undefined,
+                  offset:
+                      Math.floor((state.prevParams.offset || 0) / state.preferences.perpage) *
+                          state.preferences.perpage || undefined,
+              }
+            : ['shortname', 'fullname'].includes(state.settings.filterbycourse)
+            ? { tray: 'inbox', courseid: state.message.course.id }
+            : { tray: 'course', courseid: state.message.course.id };
         await callServicesAndRefresh([request], newParams);
 
         showToast({ text: state.strings.messagesent });
@@ -564,11 +565,11 @@ export async function createStore(data: InitialData) {
         if (deleted != DeletedStatus.DeletedForever) {
             const string = deleted
                 ? ids.length > 1
-                    ? 'undodeletemany'
-                    : 'undodeleteone'
+                    ? 'messagesmovedtotrash'
+                    : 'messagemovedtotrash'
                 : ids.length > 1
-                ? 'undorestoremany'
-                : 'undorestoreone';
+                ? 'messagesrestored'
+                : 'messagerestored';
             const text = replaceStringParams(state.strings[string], ids.length);
             const undo = () => {
                 setDeleted(ids, deleted ? DeletedStatus.NotDeleted : DeletedStatus.Deleted, false);
@@ -654,7 +655,7 @@ export async function createStore(data: InitialData) {
 
         // Redirect to inbox on large screens if no tray is specified.
         if (!state.params.tray && width >= ViewportSize.LG && !state.error) {
-            navigate({ tray: 'inbox' }, true);
+            navigate({ tray: 'inbox', dialog: state.params.dialog }, true);
         }
     };
 
@@ -667,7 +668,7 @@ export async function createStore(data: InitialData) {
     const showToast = async (toast: Toast) => {
         patch({ toasts: [toast] });
         if (toast) {
-            setTimeout(() => hideToast(toast), 10000);
+            window.setTimeout(() => hideToast(toast), 10000);
         }
     };
 
@@ -708,9 +709,9 @@ export async function createStore(data: InitialData) {
         } else if (prevData) {
             delay = Math.max(0, message.time * 1000 + delay - Date.now());
         }
-        clearTimeout(draftTimeoutId);
+        window.clearTimeout(draftTimeoutId);
 
-        draftTimeoutId = setTimeout(async () => {
+        draftTimeoutId = window.setTimeout(async () => {
             const requests: ServiceRequest[] = [
                 {
                     methodname: 'update_message',
@@ -765,7 +766,7 @@ export async function createStore(data: InitialData) {
         });
     };
 
-    await init();
+    await navigate(getViewParamsFromUrl(), true, true);
 
     return {
         createLabel,

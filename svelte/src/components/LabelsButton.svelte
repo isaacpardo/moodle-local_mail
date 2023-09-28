@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -120,7 +125,7 @@
                     class="dropdown-item local-mail-action-label-button-item"
                     on:click={applyLabels}
                 >
-                    {$store.strings.applychanges}
+                    {$store.strings.apply}
                 </button>
             {:else}
                 <button
@@ -138,8 +143,8 @@
     {/if}
 </div>
 
-<style>
+<style global>
     .local-mail-action-label-button::after {
-        display: none;
+        display: none !important;
     }
 </style>

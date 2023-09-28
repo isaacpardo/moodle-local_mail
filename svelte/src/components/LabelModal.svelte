@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 <svelte:options immutable={true} />
 
 <script lang="ts">
@@ -39,8 +44,8 @@
     onConfirm={submit}
 >
     <form on:submit|preventDefault={submit}>
-        <div class="form-group">
-            <label for="local-mail-label-modal-name">{$store.strings.labelname}</label>
+        <div class="form-group mb-0">
+            <label for="local-mail-label-modal-name">{$store.strings.name}</label>
             <input
                 type="text"
                 required
@@ -52,13 +57,17 @@
                 bind:value={name}
             />
             <div class="invalid-feedback">
-                {$store.strings[repeatedName ? 'errorrepeatedlabelname' : 'erroremptylabelname']}
+                {#if repeatedName}
+                    {$store.strings.errorrepeatedlabelname}
+                {:else}
+                    &nbsp;
+                {/if}
             </div>
             <div class="valid-feedback">&nbsp;</div>
         </div>
         <div class="form-group">
             <label for="{id}-color">
-                {$store.strings.labelcolor}
+                {$store.strings.color}
             </label>
             <div role="radiogroup" class="local-mail-label-modal-color" id="{id}-color">
                 {#each colors as color (color)}
@@ -86,7 +95,7 @@
     </form>
 </ModalDialog>
 
-<style>
+<style global>
     .local-mail-label-modal-color {
         display: flex;
         flex-wrap: wrap;

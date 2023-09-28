@@ -1,23 +1,11 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
-/**
- * @package    local-mail
- * @author     Marc Català <reskit@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+/*
+ * SPDX-FileCopyrightText: 2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
+ * SPDX-FileCopyrightText: 2014-2017 Marc Català <reskit@gmail.com>
+ * SPDX-FileCopyrightText: 2016 Albert Gasset <albertgasset@fsfe.org>
+ * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 function xmldb_local_mail_upgrade($oldversion) {
@@ -29,7 +17,7 @@ function xmldb_local_mail_upgrade($oldversion) {
 
         // Define index type_messageid_item (not unique) to be added to local_mail_index.
         $table = new xmldb_table('local_mail_index');
-        $index = new xmldb_index('type_messageid_item', XMLDB_INDEX_NOTUNIQUE, array('type', 'messageid', 'item'));
+        $index = new xmldb_index('type_messageid_item', XMLDB_INDEX_NOTUNIQUE, ['type', 'messageid', 'item']);
 
         // Conditionally launch add index type_messageid_item.
         if (!$dbman->index_exists($table, $index)) {
@@ -72,14 +60,14 @@ function xmldb_local_mail_upgrade($oldversion) {
                 AND f.filearea = :filearea
                 AND f.filename <> :filename
                 GROUP BY f.itemid';
-        $params = array(
+        $params = [
             'component' => 'local_mail',
             'filearea' => 'message',
             'filename' => '.',
-        );
+        ];
         $rs = $DB->get_recordset_sql($sql, $params);
         foreach ($rs as $record) {
-            $DB->set_field('local_mail_messages', 'attachments', $record->numfiles, array('id' => $record->itemid));
+            $DB->set_field('local_mail_messages', 'attachments', $record->numfiles, ['id' => $record->itemid]);
         }
         $rs->close();
 
@@ -91,7 +79,7 @@ function xmldb_local_mail_upgrade($oldversion) {
 
         // Delete attachment records from local_mail_index, 1000 at a time.
         while (true) {
-            $records = $DB->get_records('local_mail_index', array('type' => 'attachment'), '', 'id', 0, 1000);
+            $records = $DB->get_records('local_mail_index', ['type' => 'attachment'], '', 'id', 0, 1000);
             if (!$records) {
                 break;
             }
@@ -118,7 +106,7 @@ function xmldb_local_mail_upgrade($oldversion) {
 
         // Define index type_messageid_item (not unique) to be dropped form local_mail_index.
         $table = new xmldb_table('local_mail_index');
-        $index = new xmldb_index('type_messageid_item', XMLDB_INDEX_NOTUNIQUE, array('type', 'messageid', 'item'));
+        $index = new xmldb_index('type_messageid_item', XMLDB_INDEX_NOTUNIQUE, ['type', 'messageid', 'item']);
 
         // Conditionally launch drop index type_messageid_item.
         if ($dbman->index_exists($table, $index)) {
@@ -202,7 +190,7 @@ function xmldb_local_mail_upgrade($oldversion) {
 
         // Define index userid_type_item_time (not unique) to be dropped form local_mail_index.
         $table = new xmldb_table('local_mail_index');
-        $index = new xmldb_index('userid_type_item_time', XMLDB_INDEX_NOTUNIQUE, array('userid', 'type', 'item', 'time'));
+        $index = new xmldb_index('userid_type_item_time', XMLDB_INDEX_NOTUNIQUE, ['userid', 'type', 'item', 'time']);
 
         // Conditionally launch drop index userid_type_item_time.
         if ($dbman->index_exists($table, $index)) {
@@ -236,7 +224,7 @@ function xmldb_local_mail_upgrade($oldversion) {
         $index = new xmldb_index(
             'userid_type_item_time_messageid',
             XMLDB_INDEX_UNIQUE,
-            array('userid', 'type', 'item', 'time', 'messageid')
+            ['userid', 'type', 'item', 'time', 'messageid']
         );
 
         // Conditionally launch add index userid_type_item_time_messageid.
@@ -464,14 +452,14 @@ function xmldb_local_mail_upgrade($oldversion) {
 
     // Drop local_mail_index table.
 
-    if ($oldversion < 2023061600) {
+    if ($oldversion < 2023092200) {
         $table = new xmldb_table('local_mail_index');
 
         if ($dbman->table_exists($table)) {
             $dbman->drop_table($table);
         }
 
-        upgrade_plugin_savepoint(true, 2023061600, 'local', 'mail');
+        upgrade_plugin_savepoint(true, 2023092200, 'local', 'mail');
     }
 
     return true;
