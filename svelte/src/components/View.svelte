@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     import type { Store } from '../lib/store';
     import { getViewParamsFromUrl } from '../lib/url';
     import ComposeButton from './ComposeButton.svelte';
+    import CourseLink from './CourseLink.svelte';
     import ErrorModal from './ErrorModal.svelte';
     import BottomToolBar from './BottomToolBar.svelte';
     import List from './List.svelte';
@@ -35,18 +36,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
         tray == 'inbox'
             ? $store.strings.inbox
             : tray == 'starred'
-            ? $store.strings.starredplural
-            : tray == 'sent'
-            ? $store.strings.sentplural
-            : tray == 'drafts'
-            ? $store.strings.drafts
-            : tray == 'trash'
-            ? $store.strings.trash
-            : tray == 'label'
-            ? $store.labels.find((l) => l.id == $store.params.labelid)?.name || ''
-            : tray == 'course'
-            ? $store.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
-            : '';
+              ? $store.strings.starredplural
+              : tray == 'sent'
+                ? $store.strings.sentplural
+                : tray == 'drafts'
+                  ? $store.strings.drafts
+                  : tray == 'trash'
+                    ? $store.strings.trash
+                    : tray == 'label'
+                      ? $store.labels.find((l) => l.id == $store.params.labelid)?.name || ''
+                      : tray == 'course'
+                        ? $store.courses.find((c) => c.id == $store.params.courseid)?.fullname || ''
+                        : '';
 
     $: title = $store.message ? $store.message.subject.trim() || $store.strings.nosubject : heading;
 
@@ -125,6 +126,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
     class:local-mail-loading={$store.loading}
     bind:this={viewNode}
 >
+    {#if !$store.mobile}
+        <CourseLink {store} />
+    {/if}
+
     <!-- Heading / search / compose button -->
     <div class="row align-items-center">
         {#if $store.mobile && $store.viewportSize < ViewportSize.LG}

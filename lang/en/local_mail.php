@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
  * SPDX-FileCopyrightText: 2014-2017 Marc Català <reskit@gmail.com>
  * SPDX-FileCopyrightText: 2016-2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -41,6 +41,8 @@ $string['configcoursebadges'] = 'Course badges';
 $string['configcoursebadgesdesc'] = 'Sets the type of course name displayed in messages.';
 $string['configcoursebadgeslength'] = 'Length of course badges';
 $string['configcoursebadgeslengthdesc'] = 'Limit the length of course badges to this approximate number of characters.';
+$string['configcourselink'] = 'Course link';
+$string['configcourselinkdesc'] = 'Displays a link to the current course at the top of the page.';
 $string['configcoursetrays'] = 'Course trays';
 $string['configcoursetraysdesc'] = 'Sets which courses are displayed in menus.';
 $string['configcoursetraysname'] = 'Name of course trays';
@@ -101,7 +103,9 @@ $string['eventmessageviewed'] = 'Message viewed';
 $string['forward'] = 'Forward';
 $string['forwardedmessage'] = 'Forwarded message';
 $string['from'] = 'From';
+$string['gotocourse'] = 'Go to course {$a}';
 $string['hasattachments'] = 'Has attachments';
+$string['help'] = 'Help';
 $string['inbox'] = 'Inbox';
 $string['labels'] = 'Labels';
 $string['locked'] = 'Locked';
@@ -124,6 +128,7 @@ $string['messagesrestored'] = '{$a} messages have been restored';
 $string['more'] = 'More';
 $string['movetotrash'] = 'Move to trash';
 $string['name'] = 'Name';
+$string['navigation'] = 'Navigation';
 $string['newlabel'] = 'New label';
 $string['newmail'] = 'New mail';
 $string['nextmessage'] = 'Next message';
@@ -154,7 +159,13 @@ $string['restoremessageconfirm'] = 'Are you sure you want to restore the selecte
 $string['save'] = 'Save';
 $string['search'] = 'Search';
 $string['searchallmessages'] = 'Search all messages';
+$string['searchdate'] = 'Date';
+$string['searchdatehelp'] = 'Search messages with this date or an earlier date.';
+$string['searchfrom'] = 'From';
+$string['searchhasattachments'] = 'Has attachments';
 $string['searchoptions'] = 'Search options';
+$string['searchto'] = 'To';
+$string['searchunreadonly'] = 'Unread only';
 $string['select'] = 'Select';
 $string['send'] = 'Send';
 $string['sendmail'] = 'Send mail';
@@ -169,6 +180,5 @@ $string['trash'] = 'Trash';
 $string['trays'] = 'Trays';
 $string['undo'] = 'Undo';
 $string['unread'] = 'Unread';
-$string['unreadonly'] = 'Unread only';
 $string['unstarred'] = 'Npt starred';
 $string['viewmessage'] = 'View message';

@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
  * SPDX-FileCopyrightText: 2014-2017 Marc Català <reskit@gmail.com>
  * SPDX-FileCopyrightText: 2016-2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -41,6 +41,8 @@ $string['configcoursebadges'] = 'Etiquetes de curs';
 $string['configcoursebadgesdesc'] = 'Estableix el tipus de nom de curs mostrat als missatges.';
 $string['configcoursebadgeslength'] = 'Longitud de les etiquetes de curs.';
 $string['configcoursebadgeslengthdesc'] = 'Limita la longitud de les etiquetes de curs a aquest nombre aproximat de caràcters.';
+$string['configcourselink'] = 'Enllaç al curs';
+$string['configcourselinkdesc'] = 'Mostra un enllaç al curs actual a la part superior de la pàgina.';
 $string['configcoursetrays'] = 'Safates de curs';
 $string['configcoursetraysdesc'] = 'Estableix quins cursos es mostren als menús.';
 $string['configcoursetraysname'] = 'Nom de les safates de curs';
@@ -101,7 +103,9 @@ $string['eventmessageviewed'] = 'Missatge vist';
 $string['forward'] = 'Reenvia';
 $string['forwardedmessage'] = 'Missatge reenviat';
 $string['from'] = 'De';
+$string['gotocourse'] = 'Ves al curs {$a}';
 $string['hasattachments'] = 'Conté fitxers adjunts';
+$string['help'] = 'Ajuda';
 $string['inbox'] = 'Safata d\'entrada';
 $string['labels'] = 'Etiquetes';
 $string['locked'] = 'Bloquejat';
@@ -124,6 +128,7 @@ $string['messagesrestored'] = 'S\'han restaurat {$a} missatges';
 $string['more'] = 'Més';
 $string['movetotrash'] = 'Mou a la paperera';
 $string['name'] = 'Nom';
+$string['navigation'] = 'Navegació';
 $string['newlabel'] = 'Etiqueta nova';
 $string['newmail'] = 'Correu nou';
 $string['nextmessage'] = 'Missatge següent';
@@ -154,7 +159,13 @@ $string['restoremessageconfirm'] = 'Esteu segur que voleu restaurar els missatge
 $string['save'] = 'Desa';
 $string['search'] = 'Cerca';
 $string['searchallmessages'] = 'Cerca tots els missatges';
+$string['searchdate'] = 'Data';
+$string['searchdatehelp'] = 'Cerca missatges amb aquesta data o una data anterior.';
+$string['searchfrom'] = 'De';
+$string['searchhasattachments'] = 'Conté fitxers adjunts';
 $string['searchoptions'] = 'Opcions de cerca';
+$string['searchto'] = 'Per a';
+$string['searchunreadonly'] = 'Només sense llegir';
 $string['select'] = 'Selecciona';
 $string['send'] = 'Envia';
 $string['sendmail'] = 'Envia correu';
@@ -169,6 +180,5 @@ $string['trash'] = 'Paperera';
 $string['trays'] = 'Safates';
 $string['undo'] = 'Desfés';
 $string['unread'] = 'Sense llegir';
-$string['unreadonly'] = 'Només sense llegir';
 $string['unstarred'] = 'Sense destacar';
 $string['viewmessage'] = 'Visualitza el missatge';

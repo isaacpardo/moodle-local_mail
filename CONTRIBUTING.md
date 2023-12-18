@@ -83,3 +83,13 @@ WARNING: The script deletes all existing mail data.
 ```
 php local/mail/cli/generate.php
 ```
+
+## Copyright and licensing
+
+Copyright and licensing is done following [REUSE](https://reuse.software/) recommendations.
+
+See the `version.php` file for an example.
+
+## Changelog file
+
+Changelog file uses the format from [Keep a Changelog](https://keepachangelog.com).

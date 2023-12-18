@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
  * SPDX-FileCopyrightText: 2014-2017 Marc Català <reskit@gmail.com>
  * SPDX-FileCopyrightText: 2016-2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -41,6 +41,8 @@ $string['configcoursebadges'] = 'Etiquetas de curso';
 $string['configcoursebadgesdesc'] = 'Establece el tipo de nombre de cursos mostrado en los mensajes.';
 $string['configcoursebadgeslength'] = 'Longitud de las etiquetas de curso';
 $string['configcoursebadgeslengthdesc'] = 'Limita la longitud de las etiquetas de curso a este número aproximado de caracteres.';
+$string['configcourselink'] = 'Enlace al curso';
+$string['configcourselinkdesc'] = 'Muestra un enlace al curso actual en la parte superior de la página.';
 $string['configcoursetrays'] = 'Bandejas de curso';
 $string['configcoursetraysdesc'] = 'Establece qué cursos se muestran en los menús.';
 $string['configcoursetraysname'] = 'Nombre de las bandejas de curso';
@@ -101,7 +103,9 @@ $string['eventmessageviewed'] = 'Mensaje visto';
 $string['forward'] = 'Reenviar';
 $string['forwardedmessage'] = 'Mensaje reenviado';
 $string['from'] = 'De';
+$string['gotocourse'] = 'Ir al curso {$a}';
 $string['hasattachments'] = 'Contiene ficheros adjuntos';
+$string['help'] = 'Ayuda';
 $string['inbox'] = 'Bandeja de entrada';
 $string['labels'] = 'Etiquetas';
 $string['locked'] = 'Bloqueado';
@@ -124,6 +128,7 @@ $string['messagesrestored'] = '{$a} mensajes han sido restaurados';
 $string['more'] = 'Más';
 $string['movetotrash'] = 'Mover a la papelera';
 $string['name'] = 'Nombre';
+$string['navigation'] = 'Navegación';
 $string['newlabel'] = 'Nueva etiqueta';
 $string['newmail'] = 'Nuevo correo';
 $string['nextmessage'] = 'Mensaje siguiente';
@@ -154,7 +159,13 @@ $string['restoremessageconfirm'] = '¿Está seguro que quiere restaurar los mens
 $string['save'] = 'Guardar';
 $string['search'] = 'Buscar';
 $string['searchallmessages'] = 'Buscar todos los mensajes';
+$string['searchdate'] = 'Fecha';
+$string['searchdatehelp'] = 'Buscar mensajes con esta fecha o una fecha anterior.';
+$string['searchfrom'] = 'De';
+$string['searchhasattachments'] = 'Contiene ficheros adjuntos';
 $string['searchoptions'] = 'Opciones de búsqueda';
+$string['searchto'] = 'Para';
+$string['searchunreadonly'] = 'Sólo sin leer';
 $string['select'] = 'Seleccionar';
 $string['send'] = 'Envía';
 $string['sendmail'] = 'Enviar correo';
@@ -169,6 +180,5 @@ $string['trash'] = 'Papelera';
 $string['trays'] = 'Bandejas';
 $string['undo'] = 'Deshacer';
 $string['unread'] = 'Sin leer';
-$string['unreadonly'] = 'Sólo sin leer';
 $string['unstarred'] = 'Sin destacar';
 $string['viewmessage'] = 'Ver mensaje';

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
@@ -195,7 +195,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         width: 100%;
     }
 
-    .local-mail-course-select .dropdown-item mark {
+    .local-mail-course-select .dropdown-item :global(mark) {
         padding-left: 0;
         padding-right: 0;
         background-color: rgba(255, 255, 0, 0.2);

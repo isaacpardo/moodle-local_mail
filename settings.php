@@ -3,7 +3,7 @@
  * SPDX-FileCopyrightText: 2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
  * SPDX-FileCopyrightText: 2016-2017 Albert Gasset <albertgasset@fsfe.org>
  * SPDX-FileCopyrightText: 2017 Marc Català <reskit@gmail.com>
- * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -157,6 +157,21 @@ if ($hassiteconfig) {
     $defaultsetting = $defaults->incrementalsearchlimit;
     $paramtype = PARAM_INT;
     $settings->add(new admin_setting_configtext($name, $visiblename, $description, $defaultsetting, $paramtype));
+
+    // Navigation.
+    $settings->add(new admin_setting_heading('local_mail_navigation', strings::get('navigation'), ''));
+
+    // Course link.
+    $name = 'local_mail/courselink';
+    $visiblename = strings::get('configcourselink');
+    $description = strings::get('configcourselinkdesc');
+    $defaultsetting = $defaults->courselink;
+    $choices = [
+        'hidden' => get_string('hide'),
+        'shortname' => get_string('shortname'),
+        'fullname' => get_string('fullname'),
+    ];
+    $settings->add(new admin_setting_configselect($name, $visiblename, $description, $defaultsetting, $choices));
 
     $ADMIN->add('localplugins', $settings);
 }

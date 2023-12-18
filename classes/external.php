@@ -1,7 +1,7 @@
 <?php
 /*
  * SPDX-FileCopyrightText: 2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+ * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -77,6 +77,10 @@ class external extends \external_api {
             'incrementalsearchlimit' => new \external_value(
                 PARAM_INT,
                 'Maximum number of recent messages included in incremental search',
+            ),
+            'courselink' => new \external_value(
+                PARAM_ALPHA,
+                'Type of course name displayed in the course link: "hidden", "shortname" or "fullname"'
             ),
             'messageprocessors' => new \external_multiple_structure(
                 new \external_single_structure([

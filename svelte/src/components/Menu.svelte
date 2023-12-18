@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
@@ -147,9 +147,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 </div>
 
 <style global>
-    .local-mail-menu-navbar a:focus,
-    .local-mail-menu-navbar .btn:focus,
-    .local-mail-menu-navbar .form-control:focus {
+    .local-mail-menu-navbar :global(a:focus),
+    .local-mail-menu-navbar :global(.btn:focus),
+    .local-mail-menu-navbar :global(.form-control:focus) {
         box-shadow: inset 0 0 0 0.2rem var(--primary);
         outline: none;
     }

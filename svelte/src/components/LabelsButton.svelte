@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2023 SEIDOR <https://www.seidor.com>
+SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
@@ -28,8 +28,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 messages.length == 0
                     ? 'false'
                     : messages.length < $store.selectedMessages.size
-                    ? 'mixed'
-                    : 'true',
+                      ? 'mixed'
+                      : 'true',
             ];
         }),
     );
