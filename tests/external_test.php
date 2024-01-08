@@ -1,10 +1,35 @@
 <?php
-/*
- * SPDX-FileCopyrightText: 2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2021 Marc Català <reskit@gmail.com>
- * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+
+/**
+ * Version details
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * @package    local_mail
+ * @copyright  2017 Albert Gasset <albertgasset@fsfe.org>
+ * @copyright  2021 Marc Català <reskit@gmail.com>
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_mail;
@@ -35,7 +60,7 @@ class external_test extends testcase {
         set_config('coursebadges', 'hidden', 'local_mail');
         set_config('coursebadgeslength', '10', 'local_mail');
         set_config('filterbycourse', 'hidden', 'local_mail');
-        set_config('incrementalsearch', '1', 'local_mail');
+        set_config('incrementalsearch', '0', 'local_mail');
         set_config('incrementalsearchlimit', '2000', 'local_mail');
         set_config('courselink', 'fullname', 'local_mail');
         set_config('message_provider_local_mail_mail_enabled', 'popup,email', 'message');
@@ -57,7 +82,7 @@ class external_test extends testcase {
             'coursebadges' => 'hidden',
             'coursebadgeslength' => 10,
             'filterbycourse' => 'hidden',
-            'incrementalsearch' => true,
+            'incrementalsearch' => false,
             'incrementalsearchlimit' => 2000,
             'courselink' => 'fullname',
             'messageprocessors' => [
@@ -104,13 +129,13 @@ class external_test extends testcase {
         self::assertEquals(20, $result['maxfiles']);
         self::assertEquals(123000, $result['maxbytes']);
         self::assertEquals(['starred', 'sent', 'drafts', 'trash'], $result['globaltrays']);
-        self::assertEquals('all', $result['coursetrays']);
+        self::assertEquals('none', $result['coursetrays']);
         self::assertEquals('fullname', $result['coursetraysname']);
         self::assertEquals('fullname', $result['coursebadges']);
         self::assertEquals(20, $result['coursebadgeslength']);
         self::assertEquals('fullname', $result['filterbycourse']);
         self::assertEquals('hidden', $result['courselink']);
-        self::assertEquals(false, $result['incrementalsearch']);
+        self::assertEquals(true, $result['incrementalsearch']);
         self::assertEquals(1000, $result['incrementalsearchlimit']);
 
         // Empty global trays.

@@ -1,10 +1,35 @@
 <?php
-/*
- * SPDX-FileCopyrightText: 2012-2013 Institut Obert de Catalunya <https://ioc.gencat.cat>
- * SPDX-FileCopyrightText: 2014-2015 Marc Català <reskit@gmail.com>
- * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+
+/**
+ * Version details
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * @package    local_mail
+ * @copyright  2012-2013 Institut Obert de Catalunya <https://ioc.gencat.cat>
+ * @copyright  2014-2015 Marc Català <reskit@gmail.com>
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_mail;
@@ -67,7 +92,7 @@ class label {
         $record->color = $color;
         $record->id = $DB->insert_record('local_mail_labels', $record);
 
-        $label = new self($record, $user);
+        $label = new self($record);
 
         self::cache()->set($label->id, $label);
         self::user_cache()->delete($user->id);
@@ -103,7 +128,7 @@ class label {
             $labels = [];
             $records = $DB->get_records('local_mail_labels', ['userid' => $user->id]);
             foreach ($records as $id => $record) {
-                $labels[$id] = new self($record, $user);
+                $labels[$id] = new self($record);
             }
             \core_collator::asort_objects_by_property($labels, 'name', \core_collator::SORT_NATURAL);
 

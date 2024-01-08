@@ -1,7 +1,34 @@
 <!--
-SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
 
-SPDX-License-Identifier: GPL-3.0-or-later
+/**
+ * Version details
+ *
+ * @package    local_mail
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 -->
 <svelte:options immutable={true} />
 
@@ -10,6 +37,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     import { blur } from '../actions/blur';
     import { truncate } from '../actions/truncate';
     import type { Course, Settings, Strings } from '../lib/state';
+    import { formatCourseName } from '../lib/utils';
 
     export let settings: Settings;
     export let strings: Strings;
@@ -26,15 +54,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
     let inputText = '';
     let entering = false;
     let currentCourse: Course | undefined;
-    let nameField: 'shortname' | 'fullname';
 
-    $: nameField = settings.filterbycourse == 'shortname' ? 'shortname' : 'fullname';
     $: currentCourse = courses.find((course) => course.id == selected);
+    $: currentCourseName = formatCourseName(currentCourse, settings.filterbycourse);
     $: inputPattern = new RegExp(escape(inputText.trim()).replaceAll(/\s+/gu, '\\s+'), 'giu');
-    $: dropdownCourses = courses.filter((course) => course[nameField].match(inputPattern));
+    $: dropdownCourses = courses.filter((course) =>
+        formatCourseName(course, settings.filterbycourse).match(inputPattern),
+    );
     $: dropdownIconClass = !entering ? 'fa-caret-down' : inputText ? 'fa-times' : 'fa-caret-up';
     $: courseHtml = (course: Course): string =>
-        course[nameField].replaceAll(inputPattern, (match) =>
+        formatCourseName(course, settings.filterbycourse).replaceAll(inputPattern, (match) =>
             match.trim() ? '<mark>' + match + '</mark>' : match,
         );
 
@@ -100,9 +129,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
     {#if readonly}
         <div
             class="form-control alert-secondary pl-5 pr-2 text-left"
-            use:truncate={currentCourse?.[nameField] || ''}
+            use:truncate={currentCourseName}
         >
-            {currentCourse?.[nameField]}
+            {currentCourseName}
         </div>
     {:else if entering}
         <input
@@ -131,10 +160,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
             class="form-control px-5 text-left"
             class:alert-primary={primary && (style == 'filter-left' || style == 'filter-right')}
             class:btn-secondary={style == 'menu' || style == 'navbar'}
-            use:truncate={currentCourse?.[nameField] || ''}
+            use:truncate={currentCourseName}
             on:click={toggleDropdown}
         >
-            {currentCourse?.[nameField] || ''}
+            {currentCourseName}
         </button>
     {/if}
     {#if !readonly}

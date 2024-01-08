@@ -1,8 +1,35 @@
-/*
- * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+
+/**
+ * Version details
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * @package    local_mail
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+import type { Course } from './state';
 
 /**
  * List of supported colors for labels.
@@ -22,6 +49,18 @@ export const colors: ReadonlyArray<string> = [
 ];
 
 /**
+ * Converts HTML to plain text.
+ *
+ * @param html The HTML string to convert.
+ * @returns The plain text representation of the HTML.
+ */
+export function convertHtmlToText(html: string): string {
+    const el = document.createElement('DIV');
+    el.innerHTML = html;
+    return el.innerText || '';
+}
+
+/**
  * Converts a timestamp to a date string.
  *
  * @param time UNIX Timestamp.
@@ -37,6 +76,26 @@ export function dateFromTimestamp(time: number): string {
         String(date.getMonth() + 1).padStart(2, '0'),
         String(date.getDate()).padStart(2, '0'),
     ].join('-');
+}
+
+/**
+ * Formats the course name based on the specified field.
+ *
+ * @param course The course object.
+ * @param field The field to format the course name ('shortname' or 'fullname').
+ * @returns The formatted course name.
+ */
+export function formatCourseName(
+    course: Course | undefined,
+    field?: 'shortname' | 'fullname' | 'hidden',
+): string {
+    if (!course) {
+        return '';
+    } else if (field == 'shortname') {
+        return convertHtmlToText(course.shortname);
+    } else {
+        return convertHtmlToText(course.fullname);
+    }
 }
 
 /**

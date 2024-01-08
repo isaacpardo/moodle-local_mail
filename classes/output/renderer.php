@@ -1,11 +1,36 @@
 <?php
-/*
- * SPDX-FileCopyrightText: 2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
- * SPDX-FileCopyrightText: 2014-2019 Marc Català <reskit@gmail.com>
- * SPDX-FileCopyrightText: 2016 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+
+/**
+ * Version details
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * @package    local_mail
+ * @copyright  2012-2014 Institut Obert de Catalunya <https://ioc.gencat.cat>
+ * @copyright  2014-2019 Marc Català <reskit@gmail.com>
+ * @copyright  2016 Albert Gasset <albertgasset@fsfe.org>
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_mail\output;
@@ -18,7 +43,7 @@ class renderer extends \plugin_renderer_base {
     /**
      * Returns the URL of the icon representing the format of a file.
      *
-     * @param stored_file $file File object.
+     * @param \stored_file $file File object.
      * @return string
      */
     public function file_icon_url(\stored_file $file): string {
@@ -33,7 +58,7 @@ class renderer extends \plugin_renderer_base {
     /**
      * Returns the URL of a file.
      *
-     * @param stored_file $file File object.
+     * @param \stored_file $file File object.
      * @return string
      */
     public function file_url(\stored_file $file): string {
@@ -109,6 +134,8 @@ class renderer extends \plugin_renderer_base {
         $sender = $message->get_sender();
 
         $url = new \moodle_url('/local/mail/view.php', ['t' => 'inbox', 'm' => $message->id]);
+        $sitename = format_string($SITE->shortname, true, ['context' => \context_system::instance()]);
+        $coursename = format_string($course->fullname, true, ['context' => $context]);
         $content = file_rewrite_pluginfile_urls(
             $message->content,
             'pluginfile.php',
@@ -117,6 +144,7 @@ class renderer extends \plugin_renderer_base {
             'message',
             $message->id
         );
+        $content = format_text($content, $message->format, ['context' => $context, 'filter' => false]);
         $fs = get_file_storage();
         $files = $fs->get_area_files($context->id, 'local_mail', 'message', $message->id, 'filepath, filename', false);
         $attachments = [];
@@ -135,26 +163,26 @@ class renderer extends \plugin_renderer_base {
         $notification->name = 'mail';
         $notification->userfrom = $sender->id;
         $notification->userto = $recipient->id;
-        $notification->subject = strings::get('notificationsubject', $SITE->shortname);
+        $notification->subject = strings::get('notificationsubject', $sitename);
         $notification->fullmessage = $this->render_from_template('local_mail/notification_text', [
-            'coursename' => $course->fullname,
+            'coursename' => $coursename,
             'sendername' => $sender->fullname(),
             'date' => $this->formatted_time($message->time, true),
             'subject' => $message->subject,
-            'content' => format_text_email($content, $message->format),
+            'content' => format_text_email($content, FORMAT_HTML),
             'hasattachments' => count($attachments) > 0,
             'attachments' => $attachments,
             'viewurl' => $url->out(false),
         ]);
         $notification->fullmessageformat = FORMAT_PLAIN;
         $notification->fullmessagehtml = $this->render_from_template('local_mail/notification_html', [
-            'coursename' => $course->fullname,
+            'coursename' => $coursename,
             'courseurl' => $course->url(),
             'sendername' => $sender->fullname(),
             'senderurl' => $sender->profile_url($course),
             'date' => $this->formatted_time($message->time, true),
             'subject' => $message->subject,
-            'content' => format_text($content, $message->format, ['filter' => false]),
+            'content' => $content,
             'hasattachments' => count($attachments) > 0,
             'attachments' => $attachments,
             'viewurl' => $url->out(false),

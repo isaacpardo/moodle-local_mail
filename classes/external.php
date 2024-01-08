@@ -1,9 +1,34 @@
 <?php
-/*
- * SPDX-FileCopyrightText: 2017 Albert Gasset <albertgasset@fsfe.org>
- * SPDX-FileCopyrightText: 2023 Proyecto UNIMOODLE <direccion.area.estrategia.digital@uva.es>
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// Project implemented by the "Recovery, Transformation and Resilience Plan.
+// Funded by the European Union - Next GenerationEU".
+//
+// Produced by the UNIMOODLE University Group: Universities of
+// Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
+// Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+
+/**
+ * Version details
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * @package    local_mail
+ * @copyright  2017 Albert Gasset <albertgasset@fsfe.org>
+ * @copyright  2023 Proyecto UNIMOODLE
+ * @author     UNIMOODLE Group (Coordinator) <direccion.area.estrategia.digital@uva.es>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_mail;
@@ -237,10 +262,11 @@ class external extends \external_api {
 
         $result = [];
         foreach ($courses as $course) {
+            $context = $course->get_context();
             $result[] = [
                 'id' => $course->id,
-                'shortname' => $course->shortname,
-                'fullname' => $course->fullname,
+                'shortname' => external_format_string($course->shortname, $context),
+                'fullname' => external_format_string($course->fullname, $context),
                 'visible' => $course->visible,
                 'groupmode' => $course->groupmode,
                 'unread' => $unread[$course->id] ?? 0,
@@ -524,6 +550,7 @@ class external extends \external_api {
 
         foreach ($messages as $message) {
             $course = $message->get_course();
+            $context = $course->get_context();
             $sender = $message->get_sender();
             $recipients = [];
             foreach ($message->get_recipients(message::ROLE_TO, message::ROLE_CC) as $recipient) {
@@ -559,8 +586,8 @@ class external extends \external_api {
                 'deleted' => $message->deleted($user) != message::NOT_DELETED,
                 'course' => [
                     'id' => $course->id,
-                    'shortname' => $course->shortname,
-                    'fullname' => $course->fullname,
+                    'shortname' => external_format_string($course->shortname, $context),
+                    'fullname' => external_format_string($course->fullname, $context),
                     'visible' => $course->visible,
                     'groupmode' => $course->groupmode,
                 ],
@@ -603,9 +630,9 @@ class external extends \external_api {
                 ], '', VALUE_OPTIONAL),
                 'sender' => new \external_single_structure([
                     'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                    'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                    'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                    'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                    'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                    'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                    'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                     'pictureurl' => new \external_value(PARAM_URL, 'User image URL', VALUE_OPTIONAL),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                     'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -614,9 +641,9 @@ class external extends \external_api {
                     new \external_single_structure([
                         'type' => new \external_value(PARAM_ALPHA, 'Role of the user: "to", "cc" or "bcc"'),
                         'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                        'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                        'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                        'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                        'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                        'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                        'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                         'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -686,8 +713,8 @@ class external extends \external_api {
             'deleted' => (bool) $message->deleted($user),
             'course' => [
                 'id' => $course->id,
-                'shortname' => $course->shortname,
-                'fullname' => $course->fullname,
+                'shortname' => external_format_string($course->shortname, $context),
+                'fullname' => external_format_string($course->fullname, $context),
                 'visible' => $course->visible,
                 'groupmode' => $course->groupmode,
             ],
@@ -823,9 +850,9 @@ class external extends \external_api {
             ]),
             'sender' => new \external_single_structure([
                 'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                 'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -834,9 +861,9 @@ class external extends \external_api {
                 new \external_single_structure([
                     'type' => new \external_value(PARAM_ALPHA, 'Role of the user: "to", "cc" or "bcc"'),
                     'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                    'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                    'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                    'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                    'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                    'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                    'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                     'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                     'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                     'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -864,9 +891,9 @@ class external extends \external_api {
                     'fulltime' => new \external_value(PARAM_RAW, 'Formatted full time'),
                     'sender' => new \external_single_structure([
                         'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                        'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                        'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                        'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                        'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                        'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                        'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                         'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                         'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                         'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -917,6 +944,8 @@ class external extends \external_api {
         } else {
             event\message_viewed::create_from_message($message)->trigger();
         }
+
+        return null;
     }
 
     public static function view_message_returns() {
@@ -1358,9 +1387,9 @@ class external extends \external_api {
         return new \external_multiple_structure(
             new \external_single_structure([
                 'id' => new \external_value(PARAM_INT, 'Id of the user'),
-                'firstname' => new \external_value(PARAM_RAW, 'First name of the user'),
-                'lastname' => new \external_value(PARAM_RAW, 'Last name of the user'),
-                'fullname' => new \external_value(PARAM_RAW, 'Full name of the user'),
+                'firstname' => new \external_value(PARAM_NOTAGS, 'First name of the user'),
+                'lastname' => new \external_value(PARAM_NOTAGS, 'Last name of the user'),
+                'fullname' => new \external_value(PARAM_NOTAGS, 'Full name of the user'),
                 'pictureurl' => new \external_value(PARAM_URL, 'User image URL'),
                 'profileurl' => new \external_value(PARAM_URL, 'User profile URL'),
                 'sortorder' => new \external_value(PARAM_RAW, 'User sort order'),
@@ -1548,6 +1577,8 @@ class external extends \external_api {
         $message->update($data);
 
         event\draft_updated::create_from_message($message)->trigger();
+
+        return null;
     }
 
     public static function update_message_returns() {
@@ -1608,6 +1639,8 @@ class external extends \external_api {
                 $message->set_unread($recipient, false);
             }
         }
+
+        return null;
     }
 
     public static function send_message_returns() {
