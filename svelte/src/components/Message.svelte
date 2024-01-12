@@ -35,9 +35,11 @@
 <script lang="ts">
     import type { Message } from '../lib/state';
     import type { Store } from '../lib/store';
+    import HtmlHead from './HtmlHead.svelte';
     import NessageActions from './MessageActions.svelte';
     import MessageAttachments from './MessageAttachments.svelte';
     import MessageButtons from './MessageButtons.svelte';
+    import MessageContent from './MessageContent.svelte';
     import MessageLabels from './MessageLabels.svelte';
     import MessageReference from './MessageReference.svelte';
     import MessageUsers from './MessageUsers.svelte';
@@ -52,6 +54,8 @@
                   (u) => ['to', 'cc'].includes(u.type) && u.id != $store.userid,
               ).length > 0;
 </script>
+
+<HtmlHead javascript={message.javascript} />
 
 <div class="card">
     <div class="card-body p-3 px-xl-4">
@@ -73,10 +77,7 @@
         </div>
         <MessageUsers {store} {message} />
         <hr />
-        <div class="local-mail-message-content">
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html message.content}
-        </div>
+        <MessageContent content={message.content} />
         {#if message.attachments.length > 0}
             <hr />
             <MessageAttachments strings={$store.strings} {message} />
@@ -96,9 +97,3 @@
         <MessageReference strings={$store.strings} {reference} />
     {/each}
 {/if}
-
-<style global>
-    .local-mail-message-content {
-        max-width: 60rem;
-    }
-</style>

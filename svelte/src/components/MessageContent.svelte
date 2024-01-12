@@ -33,40 +33,26 @@
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import type { Reference, Strings } from '../lib/state';
-    import MessageAttachments from './MessageAttachments.svelte';
-    import MessageContent from './MessageContent.svelte';
-    import UserPicture from './UserPicture.svelte';
+    import { afterUpdate } from 'svelte';
+    import { loadModule, type CoreFiltersEvents } from '../lib/amd';
 
-    export let strings: Strings;
-    export let reference: Reference;
+    export let content: string;
+
+    let node: Element;
+
+    afterUpdate(async () => {
+        const events = await loadModule<CoreFiltersEvents>('core_filters/events');
+        events.notifyFilterContentUpdated([node]);
+    });
 </script>
 
-<div class="card mb-4">
-    <div class="card-body p-3 px-xl-4">
-        <h5 class="h5 card-title mb-3">
-            {reference.subject}
-        </h5>
-        <div class="d-sm-flex mb-n1">
-            <div class="d-flex mb-3 mb-sm-0">
-                <div class="mr-3">
-                    <UserPicture user={reference.sender} />
-                </div>
-                <div class="mt-1">
-                    <a href={reference.sender.profileurl}>
-                        {reference.sender.fullname}
-                    </a>
-                </div>
-            </div>
-            <div class="mt-1 ml-auto">
-                {reference.fulltime}
-            </div>
-        </div>
-        <hr />
-        <MessageContent content={reference.content} />
-        {#if reference.attachments.length > 0}
-            <hr />
-            <MessageAttachments {strings} message={reference} />
-        {/if}
-    </div>
+<div class="local-mail-message-content" bind:this={node}>
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+    {@html content}
 </div>
+
+<style global>
+    .local-mail-message-content {
+        max-width: 60rem;
+    }
+</style>

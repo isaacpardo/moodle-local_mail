@@ -33,40 +33,28 @@
 <svelte:options immutable={true} />
 
 <script lang="ts">
-    import type { Reference, Strings } from '../lib/state';
-    import MessageAttachments from './MessageAttachments.svelte';
-    import MessageContent from './MessageContent.svelte';
-    import UserPicture from './UserPicture.svelte';
+    import { onDestroy, tick } from 'svelte';
+    import { loadModule, type CoreFragment } from '../lib/amd';
 
-    export let strings: Strings;
-    export let reference: Reference;
+    /** Script tags to be added to the head. */
+    export let javascript: string | undefined;
+
+    let scriptElement: Element | undefined;
+
+    $: updateJavascript(javascript || '');
+
+    const updateJavascript = async (javascript: string) => {
+        const fragment = await loadModule<CoreFragment>('core/fragment');
+        scriptElement?.remove();
+        scriptElement = undefined;
+        await tick();
+        scriptElement = document.createElement('script');
+        scriptElement.setAttribute('type', 'text/javascript');
+        scriptElement.innerHTML = fragment.processCollectedJavascript(javascript);
+        document.head.append(scriptElement);
+    };
+
+    onDestroy(() => {
+        scriptElement?.remove();
+    });
 </script>
-
-<div class="card mb-4">
-    <div class="card-body p-3 px-xl-4">
-        <h5 class="h5 card-title mb-3">
-            {reference.subject}
-        </h5>
-        <div class="d-sm-flex mb-n1">
-            <div class="d-flex mb-3 mb-sm-0">
-                <div class="mr-3">
-                    <UserPicture user={reference.sender} />
-                </div>
-                <div class="mt-1">
-                    <a href={reference.sender.profileurl}>
-                        {reference.sender.fullname}
-                    </a>
-                </div>
-            </div>
-            <div class="mt-1 ml-auto">
-                {reference.fulltime}
-            </div>
-        </div>
-        <hr />
-        <MessageContent content={reference.content} />
-        {#if reference.attachments.length > 0}
-            <hr />
-            <MessageAttachments {strings} message={reference} />
-        {/if}
-    </div>
-</div>
