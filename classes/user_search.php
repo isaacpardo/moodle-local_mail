@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -33,7 +33,6 @@
 namespace local_mail;
 
 class user_search {
-
     /** @var user Search users visible by this user. */
     public user $user;
 
@@ -91,7 +90,7 @@ class user_search {
     public function count(): int {
         global $DB;
 
-        list($sql, $params) = $this->get_base_sql('COUNT(*)');
+        [$sql, $params] = $this->get_base_sql('COUNT(*)');
 
         return $DB->count_records_sql($sql, $params);
     }
@@ -108,9 +107,9 @@ class user_search {
 
         $fields = \core_user\fields::get_picture_fields();
 
-        list($sql, $params) = $this->get_base_sql(implode(',', $fields));
+        [$sql, $params] = $this->get_base_sql(implode(',', $fields));
 
-        list($sort, $sortparams) = users_order_by_sql();
+        [$sort, $sortparams] = users_order_by_sql();
         $sql .= ' ORDER BY ' . $sort;
         $params = array_merge($params, $sortparams);
 
@@ -183,7 +182,7 @@ class user_search {
                 $groupids = [$this->groupid];
             }
             if ($groupids) {
-                list($groupsql, $groupparams) = $DB->get_in_or_equal($groupids, SQL_PARAMS_NAMED, 'group');
+                [$groupsql, $groupparams] = $DB->get_in_or_equal($groupids, SQL_PARAMS_NAMED, 'group');
                 $wheres .= " AND u.id IN (SELECT gm.userid FROM {groups_members} gm WHERE gm.groupid $groupsql)";
                 $params = array_merge($params, $groupparams);
             } else {
@@ -195,13 +194,13 @@ class user_search {
         // Full name.
         if ($this->fullname) {
             $fullnamefield = $DB->sql_fullname('u.firstname', 'u.lastname');
-            $wheres .= ' AND ' . $DB->sql_like($fullnamefield, ':fullname', false, false);;
+            $wheres .= ' AND ' . $DB->sql_like($fullnamefield, ':fullname', false, false);
             $params['fullname'] = '%' . $DB->sql_like_escape($this->fullname) . '%';
         }
 
         // IDs.
         if ($this->include) {
-            list($includesql, $includeparams) = $DB->get_in_or_equal($this->include, SQL_PARAMS_NAMED, 'id');
+            [$includesql, $includeparams] = $DB->get_in_or_equal($this->include, SQL_PARAMS_NAMED, 'id');
             $wheres .= ' AND u.id ' . $includesql;
             $params = array_merge($params, $includeparams);
         }

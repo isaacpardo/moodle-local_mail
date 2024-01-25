@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -33,15 +33,14 @@
 namespace local_mail;
 
 class exception extends \moodle_exception {
-
     /**
      * Constructor.
      *
      * @param string $errorcode Language string name.
-     * @param ?mixed $a Language string parameters.
+     * @param mixed $a Language string parameters.
      * @param ?string $debuginfo Optional debugging information
      */
-    public function __construct(string $errorcode, mixed $a = null, string $debuginfo = null) {
+    public function __construct(string $errorcode, $a = null, string $debuginfo = null) {
         parent::__construct($errorcode, 'local_mail', '', $a, $debuginfo);
     }
 }

@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -39,7 +39,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     $dbman = $DB->get_manager(); // Loads ddl manager and xmldb classes.
 
     if ($oldversion < 2015121400) {
-
         // Clean obsolete local_mail_fullmessage preference.
         $params = ['name' => 'local_mail_fullmessage'];
         $DB->execute('DELETE FROM {user_preferences} WHERE name = :name', $params);
@@ -48,7 +47,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     }
 
     if ($oldversion < 2016070100) {
-
         // Define field attachments to be added to local_mail_messages.
         $table = new xmldb_table('local_mail_messages');
         $field = new xmldb_field('attachments', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0', 'format');
@@ -63,7 +61,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     }
 
     if ($oldversion < 2016070101) {
-
         // Update field attachments.
         $sql = 'SELECT f.itemid, COUNT(*) as numfiles
                 FROM {files} f
@@ -87,7 +84,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     }
 
     if ($oldversion < 2016070103) {
-
         // Clean obsolete settings.
         unset_config('cronenabled', 'local_mail');
         unset_config('cronstart', 'local_mail');
@@ -98,7 +94,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     }
 
     if ($oldversion < 2017070400) {
-
         // Define field normalizedsubject to be added to local_mail_messages.
         $table = new xmldb_table('local_mail_messages');
         $field = new xmldb_field('normalizedsubject', XMLDB_TYPE_CHAR, '100', null, null, null, null, 'time');
@@ -113,7 +108,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     }
 
     if ($oldversion < 2017070401) {
-
         // Define field normalizedcontent to be added to local_mail_messages.
         $table = new xmldb_table('local_mail_messages');
         $field = new xmldb_field('normalizedcontent', XMLDB_TYPE_TEXT, null, null, null, null, null, 'normalizedsubject');
@@ -136,7 +130,7 @@ function xmldb_local_mail_upgrade($oldversion) {
             $fields = 'id, courseid, subject, content, format';
             $records = $DB->get_records_select('local_mail_messages', $select, $params, 'id', $fields, 0, 100);
             foreach ($records as $record) {
-                $data = new stdClass;
+                $data = new \stdClass();
                 $data->id = $record->id;
                 $data->normalizedsubject = \local_mail\message::normalize_text($record->subject, FORMAT_PLAIN);
                 $data->normalizedcontent = \local_mail\message::normalize_text($record->content, $record->format);
@@ -342,7 +336,6 @@ function xmldb_local_mail_upgrade($oldversion) {
     // Add new indexes to local_mail_message_users and local_mail_message_labels.
 
     if ($oldversion < 2023060705) {
-
         $table = new xmldb_table('local_mail_message_users');
         $index = new xmldb_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
         if (!$dbman->index_exists($table, $index)) {

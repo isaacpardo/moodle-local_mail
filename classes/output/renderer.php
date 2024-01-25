@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -39,7 +39,6 @@ use local_mail\message;
 use local_mail\user;
 
 class renderer extends \plugin_renderer_base {
-
     /**
      * Returns the URL of the icon representing the format of a file.
      *

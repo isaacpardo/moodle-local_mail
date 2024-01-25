@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -33,7 +33,6 @@
 namespace local_mail;
 
 class settings {
-
     /** @var bool Backup and restore enabled. */
     public bool $enablebackup = true;
 
@@ -156,6 +155,9 @@ class settings {
         if (!get_config('message', 'local_mail_mail_disable')) {
             $enabled = explode(',', get_config('message', 'message_provider_local_mail_mail_enabled'));
             foreach (get_message_processors(true) as $processor) {
+                if ($processor->name == 'localmail') {
+                    continue;
+                }
                 $locked = (bool) get_config('message', "{$processor->name}_provider_local_mail_mail_locked");
                 $settings->messageprocessors[] = [
                     'name' => $processor->name,
@@ -177,7 +179,7 @@ class settings {
     public static function is_installed(): bool {
         global $CFG;
 
-        $plugin = new \stdClass;
+        $plugin = new \stdClass();
         include("$CFG->dirroot/local/mail/version.php");
 
         $version = get_config('local_mail', 'version');

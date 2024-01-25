@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -37,7 +37,6 @@ namespace local_mail;
 use local_mail\event\message_base;
 
 abstract class testcase extends \advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
@@ -101,7 +100,7 @@ abstract class testcase extends \advanced_testcase {
             'draft' => (int) $message->draft,
             'time' => $message->time,
             'normalizedsubject' => message::normalize_text($message->subject, FORMAT_PLAIN),
-            'normalizedcontent' => message::normalize_text($message->content, $message->subject),
+            'normalizedcontent' => message::normalize_text($message->content, $message->format),
         ]);
 
         $numusers = count($message->get_recipients()) + 1;
@@ -253,9 +252,9 @@ abstract class testcase extends \advanced_testcase {
      * Returns a random item of an array.
      *
      * @param mixed[] $items Array of items
-     * @return ?mixed
+     * @return mixed
      */
-    protected static function random_item(array $items): mixed {
+    protected static function random_item(array $items) {
         $items = array_values($items);
         return $items ? $items[rand(0, count($items) - 1)] : null;
     }

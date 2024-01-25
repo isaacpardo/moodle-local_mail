@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -35,7 +35,6 @@
 namespace local_mail;
 
 class label {
-
     /** @var string[] List of valid colors. */
     const COLORS = ['gray', 'blue', 'indigo', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'teal', 'cyan'];
 
@@ -86,7 +85,7 @@ class label {
         assert(\core_text::strlen(self::nromalized_name($name)) > 0);
         assert($color == '' || in_array($color, self::COLORS));
 
-        $record = new \stdClass;
+        $record = new \stdClass();
         $record->userid = $user->id;
         $record->name = self::nromalized_name($name);
         $record->color = $color;
@@ -155,7 +154,7 @@ class label {
         $missingids = array_filter($ids, fn ($id) => !$labels[$id]);
 
         if ($missingids) {
-            list($sqlid, $params) = $DB->get_in_or_equal($missingids);
+            [$sqlid, $params] = $DB->get_in_or_equal($missingids);
             $records = $DB->get_records_select('local_mail_labels', "id $sqlid", $params);
             foreach ($missingids as $id) {
                 if (isset($records[$id])) {
@@ -220,7 +219,7 @@ class label {
         $this->name = self::nromalized_name($name);
         $this->color = $color;
 
-        $record = new \stdClass;
+        $record = new \stdClass();
         $record->id = $this->id;
         $record->name = $this->name;
         $record->color = $this->color;

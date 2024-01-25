@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -42,7 +42,6 @@ require_once(__DIR__ . '/testcase.php');
  * @runTestsInSeparateProcesses
  */
 class lib_test extends testcase {
-
     public function test_pluginfile() {
         $generator = $this->getDataGenerator();
         $course = new course($generator->create_course());

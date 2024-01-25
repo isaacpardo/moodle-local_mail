@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 from pathlib import Path
 import re
 
@@ -28,7 +26,7 @@ OUTPUT_PRE = """// This file is part of Moodle - http://moodle.org/
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details

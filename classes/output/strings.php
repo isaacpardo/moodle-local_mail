@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -33,7 +33,6 @@
 namespace local_mail\output;
 
 class strings {
-
     /**
      * Returns a language string with parameters replaced.
      *
@@ -41,7 +40,7 @@ class strings {
      * @param string|object|array $param A string, a number or an object to replace parameters with.
      * @return string The localized string.
      */
-    public static function get(string $id, mixed $param = null): string {
+    public static function get(string $id, $param = null): string {
         return self::manager(current_language())->get_string($id, 'local_mail', $param);
     }
 
@@ -96,8 +95,7 @@ class strings {
             // @codeCoverageIgnoreEnd
         }
 
-        $instance = new class($CFG->langotherroot, $CFG->langlocalroot, []) extends \core_string_manager_standard {
-
+        $instance = new class ($CFG->langotherroot, $CFG->langlocalroot, []) extends \core_string_manager_standard {
             public function load_component_strings($component, $lang, $disablecache = false, $disablelocal = false) {
                 global $CFG;
 

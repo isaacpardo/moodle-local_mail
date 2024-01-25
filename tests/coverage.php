@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -33,7 +33,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 class local_mail_coverage extends phpunit_coverage_info {
-
     protected $includelistfolders = [
         'backup',
     ];
@@ -43,4 +42,4 @@ class local_mail_coverage extends phpunit_coverage_info {
     ];
 }
 
-return new local_mail_coverage;
+return new local_mail_coverage();

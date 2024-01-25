@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -40,7 +40,6 @@ require_once(__DIR__ . '/testcase.php');
  * @covers \local_mail\message_search
  */
 class message_search_test extends testcase {
-
     /* Constants used for generating random mail data. */
     private const NUM_COURSES = 5;
     private const NUM_USERS = 10;
@@ -62,7 +61,7 @@ class message_search_test extends testcase {
     ];
 
     public function test_count() {
-        list($users, $messages) = self::generate_data();
+        [$users, $messages] = self::generate_data();
         foreach (self::cases($users, $messages) as $search) {
             $expected = count(self::search_result($messages, $search));
             self::assertEquals($expected, $search->count(), $search);
@@ -70,7 +69,7 @@ class message_search_test extends testcase {
     }
 
     public function test_count_per_course() {
-        list($users, $messages) = self::generate_data();
+        [$users, $messages] = self::generate_data();
         foreach (self::cases($users, $messages) as $search) {
             $expected = [];
             foreach (self::search_result($messages, $search) as $message) {
@@ -81,7 +80,7 @@ class message_search_test extends testcase {
     }
 
     public function test_count_per_label() {
-        list($users, $messages) = self::generate_data();
+        [$users, $messages] = self::generate_data();
         foreach (self::cases($users, $messages) as $search) {
             $expected = [];
             foreach (self::search_result($messages, $search) as $message) {
@@ -96,7 +95,7 @@ class message_search_test extends testcase {
     }
 
     public function test_get() {
-        list($users, $messages) = self::generate_data();
+        [$users, $messages] = self::generate_data();
         foreach (self::cases($users, $messages) as $search) {
             $expected = self::search_result($messages, $search);
             $result = $search->get(0, 0);
@@ -123,7 +122,6 @@ class message_search_test extends testcase {
         $result = [];
 
         foreach ($users as $user) {
-
             // All messages.
             $result[] = new message_search($user);
 

@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -38,7 +38,6 @@ defined('MOODLE_INTERNAL') || die;
 require_once("$CFG->libdir/externallib.php");
 
 class external extends \external_api {
-
     public static function get_settings_parameters() {
         return new \external_function_parameters([]);
     }
@@ -218,7 +217,7 @@ class external extends \external_api {
 
         if (isset($params['preferences']['notifications'])) {
             $processornames = array_column(get_message_processors(true), 'name');
-            if (array_diff($params['preferences']['notifications'],  $processornames)) {
+            if (array_diff($params['preferences']['notifications'], $processornames)) {
                 throw new \invalid_parameter_exception('"notifications" must contain message processor names');
             }
             $enabled = implode(',', $params['preferences']['notifications']);
@@ -681,10 +680,11 @@ class external extends \external_api {
     }
 
     public static function get_message_response(user $user, message $message) {
-        global $PAGE;
+        global $OUTPUT, $PAGE;
         $renderer = $PAGE->get_renderer('local_mail');
 
         $PAGE->initialise_theme_and_output();
+        $OUTPUT->header(); // Hack alert: Forcing bootstrap_renderer to initiate moodle page.
         $PAGE->start_collecting_javascript_requirements();
 
         $course = $message->get_course();
@@ -1391,7 +1391,7 @@ class external extends \external_api {
     }
 
     public static function get_message_form() {
-        global $CFG, $PAGE;
+        global $CFG, $OUTPUT, $PAGE;
 
         require_once("$CFG->libdir/form/editor.php");
         require_once("$CFG->libdir/form/filemanager.php");
@@ -1410,7 +1410,7 @@ class external extends \external_api {
             $data->format = FORMAT_HTML;
         }
 
-        $PAGE->set_url(new \moodle_url('/local/mail/view.php',  ['t' => 'drafts', 'm' => $message->id]));
+        $PAGE->set_url(new \moodle_url('/local/mail/view.php', ['t' => 'drafts', 'm' => $message->id]));
         $PAGE->set_context(\context_system::instance());
         $options['autosave'] = false;
         $attributes = ['id' => 'local-mail-compose-editor-' . $message->id];
@@ -1421,6 +1421,7 @@ class external extends \external_api {
         $filemanager->setValue($data->draftitemid);
 
         $PAGE->initialise_theme_and_output();
+        $OUTPUT->header(); // Hack alert: Forcing bootstrap_renderer to initiate moodle page.
         $PAGE->start_collecting_javascript_requirements();
         $editorhtml = $editor->toHtml();
         $filemanagerhtml = $filemanager->toHtml();

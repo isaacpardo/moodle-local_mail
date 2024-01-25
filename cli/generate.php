@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -169,7 +169,7 @@ function add_random_attachments(\file_storage $fs, message_data $data) {
 }
 
 function add_random_recipients(message_data $data, array $users): void {
-    $counts = new \stdClass;
+    $counts = new \stdClass();
     $maxcount = count($users) - 1;
     $counts->to = min($maxcount, random_count(1, TO_RECIPIENTS_EX, TO_RECIPIENTS_SD));
     $maxcount -= $counts->to;
@@ -213,7 +213,9 @@ function generate_course_messages(\file_storage $fs, course $course, ?user $admi
     for ($i = 0; $i < $count; $i++) {
         print_progress("Generating messages for course " . $course->shortname, $count);
         if ($i % 10 == 0) {
-            $transaction?->allow_commit();
+            if ($transaction) {
+                $transaction->allow_commit();
+            }
             $transaction = $DB->start_delegated_transaction();
         }
         $time = (int) (($endtime - $starttime) * $i / $count + $starttime);
@@ -243,7 +245,9 @@ function generate_course_messages(\file_storage $fs, course $course, ?user $admi
         set_random_deleted($message);
     }
 
-    $transaction?->allow_commit();
+    if ($transaction) {
+        $transaction->allow_commit();
+    }
 }
 
 function generate_random_forward(\file_storage $fs, message $message, array $users, int $time): message_data {
@@ -350,7 +354,7 @@ function random_count(int $min, float $ex, float $sd): int {
     return max($min, (int) round($r));
 }
 
-function random_item(array $items): mixed {
+function random_item(array $items) {
     return array_values($items)[rand(0, count($items) - 1)];
 }
 

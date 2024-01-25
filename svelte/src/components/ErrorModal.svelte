@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -45,8 +45,8 @@
         {#if $store.error?.debuginfo}
             <p>{$store.error?.debuginfo}</p>
         {/if}
-        {#if $store.error?.stacktrace}
-            <pre>{$store.error?.stacktrace}</pre>
+        {#if $store.error?.backtrace || $store.error?.stacktrace}
+            <pre>{$store.error?.backtrace || $store.error?.stacktrace}</pre>
         {/if}
     </ModalDialog>
 {/if}

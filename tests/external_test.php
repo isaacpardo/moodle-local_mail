@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -45,7 +45,6 @@ require_once(__DIR__ . '/user_search_test.php');
  * @runTestsInSeparateProcesses
  */
 class external_test extends testcase {
-
     public function test_get_settings() {
         $generator = $this->getDataGenerator();
         $user = $generator->create_user();
@@ -211,7 +210,7 @@ class external_test extends testcase {
 
         $result = external::get_preferences();
 
-        external::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferences_returns(), $result);
 
         $expected = [
             'perpage' => 20,
@@ -228,7 +227,7 @@ class external_test extends testcase {
 
         $result = external::get_preferences();
 
-        external::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferences_returns(), $result);
 
         $expected = [
             'perpage' => 10,
@@ -243,14 +242,14 @@ class external_test extends testcase {
 
         $result = external::get_preferences();
 
-        external::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferences_returns(), $result);
         self::assertEquals(5, $result['perpage']);
 
         set_user_preference('local_mail_mailsperpage', 101);
 
         $result = external::get_preferences();
 
-        external::validate_parameters(external::get_preferencs_returns(), $result);
+        external::validate_parameters(external::get_preferences_returns(), $result);
         self::assertEquals(100, $result['perpage']);
     }
 
@@ -311,7 +310,7 @@ class external_test extends testcase {
 
     public function test_get_courses() {
         $generator = $this->getDataGenerator();
-        list($users) = message_search_test::generate_data();
+        [$users] = message_search_test::generate_data();
 
         foreach ($users as $user) {
             $this->setUser($user->id);
@@ -351,7 +350,7 @@ class external_test extends testcase {
 
     public function test_get_labels() {
         $generator = $this->getDataGenerator();
-        list($users) = message_search_test::generate_data();
+        [$users] = message_search_test::generate_data();
 
         foreach ($users as $user) {
             $this->setUser($user->id);
@@ -389,7 +388,7 @@ class external_test extends testcase {
     public function test_count_messages() {
         $generator = self::getDataGenerator();
 
-        list($users, $messages) = message_search_test::generate_data();
+        [$users, $messages] = message_search_test::generate_data();
 
         foreach (message_search_test::cases($users, $messages) as $search) {
             $this->setUser($search->user->id);
@@ -508,7 +507,7 @@ class external_test extends testcase {
     public function test_search_messages() {
         $generator = self::getDataGenerator();
 
-        list($users, $messages) = message_search_test::generate_data();
+        [$users, $messages] = message_search_test::generate_data();
 
         foreach (message_search_test::cases($users, $messages) as $search) {
             $this->setUser($search->user->id);

@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -37,7 +37,6 @@ use local_mail\settings;
 use local_mail\user;
 
 class mobile {
-
     public static function init() {
         global $CFG;
 
@@ -67,5 +66,4 @@ class mobile {
             'javascript' => file_get_contents("$CFG->dirroot/local/mail/classes/output/mobile-view.js"),
         ];
     }
-
 }

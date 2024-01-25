@@ -19,7 +19,7 @@
 // Produced by the UNIMOODLE University Group: Universities of
 // Valladolid, Complutense de Madrid, UPV/EHU, León, Salamanca,
 // Illes Balears, Valencia, Rey Juan Carlos, La Laguna, Zaragoza, Málaga,
-// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos
+// Córdoba, Extremadura, Vigo, Las Palmas de Gran Canaria y Burgos.
 
 /**
  * Version details
@@ -44,7 +44,6 @@ require_once("$CFG->dirroot/local/mail/db/upgrade.php");
  * @covers \xmldb_local_mail_upgrade
  */
 class upgrade_test extends testcase {
-
     public function test_upgrade() {
         global $CFG, $DB;
 
